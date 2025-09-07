@@ -1,0 +1,28 @@
+plugins {
+    id 'java'
+}
+
+// Run PHPUnit tests
+task phpUnitTest(type: Exec) {
+    description = 'Run PHPUnit tests'
+    group = 'verification'
+
+    def phpunit = file('phpunit').exists() ? './phpunit' : 'vendor/bin/phpunit'
+
+    // Run PHPUnit with the --configuration option to specify phpunit.xml
+    commandLine 'php', phpunit,
+                '--configuration', 'phpunit.xml',  
+                '--testdox',                       
+                '--colors=always',                 
+                '--log-junit', 'build/test-logs/test-results.xml',  
+                'tests'                            
+}
+
+
+test {
+    dependsOn phpUnitTest
+    reports {
+        junitXml.required.set(true)   
+        html.required.set(true)      
+    }
+}
