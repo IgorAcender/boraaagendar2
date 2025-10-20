@@ -1,18 +1,55 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+normalize_bool() {
+  local v="${1:-false}"
+  v="$(echo "$v" | tr '[:upper:]' '[:lower:]')"
+  case "$v" in
+    1|true|on|yes) echo "true" ;;
+    *) echo "false" ;;
+  esac
+}
+
+replace_placeholders() {
+  # Replace common EasyPanel placeholders if present
+  local val="${1:-}"
+  local primary="${PRIMARY_DOMAIN:-}"
+  local project="${PROJECT_NAME:-}"
+  if [[ -n "$primary" ]]; then
+    val="${val//\$\(PRIMARY_DOMAIN\)/$primary}"
+    val="${val//\${PRIMARY_DOMAIN\}/$primary}"
+  fi
+  if [[ -n "$project" ]]; then
+    val="${val//\$\(PROJECT_NAME\)/$project}"
+    val="${val//\${PROJECT_NAME\}/$project}"
+  fi
+  echo "$val"
+}
+
 # Generate config.php from environment variables if not present
 if [ ! -f "/app/config.php" ]; then
   echo "[entrypoint] Creating /app/config.php from environment variables"
 
-  : "${APP_BASE_URL:=http://localhost}"
-  : "${APP_LANGUAGE:=english}"
-  : "${APP_DEBUG:=false}"
+  # Accept both our APP_* names and EasyPanel defaults
+  BASE_URL_VAL="${APP_BASE_URL:-${BASE_URL:-}}"
+  BASE_URL_VAL="$(replace_placeholders "$BASE_URL_VAL")"
+  if [[ -z "$BASE_URL_VAL" && -n "${PRIMARY_DOMAIN:-}" ]]; then
+    BASE_URL_VAL="https://${PRIMARY_DOMAIN}"
+  fi
+  if [[ -z "$BASE_URL_VAL" ]]; then
+    BASE_URL_VAL="http://localhost"
+  fi
 
-  : "${DB_HOST:=mysql}"
-  : "${DB_NAME:=easyappointments}"
-  : "${DB_USER:=user}"
-  : "${DB_PASS:=password}"
+  APP_LANGUAGE_VAL="${APP_LANGUAGE:-english}"
+
+  DEBUG_RAW="${APP_DEBUG:-${DEBUG_MODE:-false}}"
+  APP_DEBUG_VAL="$(normalize_bool "$DEBUG_RAW")"
+
+  DB_HOST_VAL="${DB_HOST:-mysql}"
+  DB_HOST_VAL="$(replace_placeholders "$DB_HOST_VAL")"
+  DB_NAME_VAL="${DB_NAME:-${PROJECT_NAME:-easyappointments}}"
+  DB_USER_VAL="${DB_USER:-${DB_USERNAME:-user}}"
+  DB_PASS_VAL="${DB_PASS:-${DB_PASSWORD:-password}}"
 
   cat > /app/config.php <<PHP
 <?php
@@ -20,15 +57,15 @@ if [ ! -f "/app/config.php" ]; then
 class Config
 {
     // GENERAL SETTINGS
-    const BASE_URL   = '${APP_BASE_URL}';
-    const LANGUAGE   = '${APP_LANGUAGE}';
-    const DEBUG_MODE = ${APP_DEBUG};
+    const BASE_URL   = '${BASE_URL_VAL}';
+    const LANGUAGE   = '${APP_LANGUAGE_VAL}';
+    const DEBUG_MODE = ${APP_DEBUG_VAL};
 
     // DATABASE SETTINGS
-    const DB_HOST     = '${DB_HOST}';
-    const DB_NAME     = '${DB_NAME}';
-    const DB_USERNAME = '${DB_USER}';
-    const DB_PASSWORD = '${DB_PASS}';
+    const DB_HOST     = '${DB_HOST_VAL}';
+    const DB_NAME     = '${DB_NAME_VAL}';
+    const DB_USERNAME = '${DB_USER_VAL}';
+    const DB_PASSWORD = '${DB_PASS_VAL}';
 
     // GOOGLE CALENDAR SYNC (disabled by default)
     const GOOGLE_SYNC_FEATURE = false;
@@ -43,4 +80,3 @@ chmod -R 777 /app/storage || true
 
 # Delegate to the base image entrypoint (starts php-fpm + nginx)
 exec /opt/docker/bin/entrypoint.sh "$@"
-
