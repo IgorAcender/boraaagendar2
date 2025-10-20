@@ -486,3 +486,12 @@ $lang['please_select'] = 'Por Favor, Selecione';
 $lang['secret_header'] = 'Secret Header';
 $lang['search'] = 'Search';
 // End
+// Override terminology: replace 'fornecedor(es)' with 'profissional(is)'
+foreach ($lang as $__k => $__v) {
+    if (is_string($__v)) {
+        $__v = str_replace('fornecedores', 'profissionais', $__v);
+        $__v = str_replace('Fornecedor', 'Profissional', $__v);
+        $__v = str_replace('fornecedor', 'profissional', $__v);
+        $lang[$__k] = $__v;
+    }
+}

@@ -398,6 +398,15 @@ $lang['google_analytics_code'] = 'Código do Google Analytics';
 $lang['matomo_analytics_url'] = 'URL do Matomo Analytics';
 $lang['future_booking_limit'] = 'Limite de Agendamento Futuro';
 $lang['limit_days'] = 'Limite (Dias)';
+// Override terminology: replace 'fornecedor(es)' with 'profissional(is)'
+foreach ($lang as $__k => $__v) {
+    if (is_string($__v)) {
+        $__v = str_replace('fornecedores', 'profissionais', $__v);
+        $__v = str_replace('Fornecedor', 'Profissional', $__v);
+        $__v = str_replace('fornecedor', 'profissional', $__v);
+        $lang[$__k] = $__v;
+    }
+}
 $lang['future_booking_limit_hint'] = 'Defina o limite futuro em dias que os clientes podem fazer compromissos através da página de agendamento pública.';
 $lang['api_token'] = 'Token da API';
 $lang['allow_rescheduling_cancellation_before'] = 'Permitir Reagendamento/Cancelamento Antes';
