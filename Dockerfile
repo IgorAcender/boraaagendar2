@@ -11,12 +11,15 @@ WORKDIR /app
 
 # Install only PHP dependencies
 COPY composer.json composer.lock ./
+# Ignore only ext-gd during composer install in build stage.
+# The runtime image provides the required PHP extension.
 RUN composer install \
     --no-interaction \
     --no-dev \
     --prefer-dist \
     --no-scripts \
-    --optimize-autoloader
+    --optimize-autoloader \
+    --ignore-platform-req=ext-gd
 
 # --- Assets stage -------------------------------------------------------------
 FROM node:18 AS assets
