@@ -11,15 +11,12 @@ WORKDIR /app
 
 # Install only PHP dependencies
 COPY composer.json composer.lock ./
-# The composer image may miss some PHP extensions (e.g., gd). We ignore only the
-# gd platform requirement during install; the runtime image will provide it.
 RUN composer install \
     --no-interaction \
     --no-dev \
     --prefer-dist \
     --no-scripts \
-    --optimize-autoloader \
-    --ignore-platform-req=ext-gd
+    --optimize-autoloader
 
 # --- Assets stage -------------------------------------------------------------
 FROM node:18 AS assets
@@ -57,3 +54,4 @@ EXPOSE 80
 # Use our entrypoint, then hand off to the base entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["supervisord"]
+
