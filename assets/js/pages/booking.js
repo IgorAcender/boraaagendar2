@@ -174,12 +174,12 @@ App.Pages.Booking = (function () {
 
         optimizeContactInfoDisplay();
 
-        const serviceOptionCount = $selectService.find('option').length;
-
-        if (serviceOptionCount === 2) {
-            $selectService.find('option[value=""]').remove();
-            const firstServiceId = $selectService.find('option:first').attr('value');
-            $selectService.val(firstServiceId).trigger('change');
+        // If only one provider exists, preselect it and trigger population of services.
+        const providerOptionCount = $selectProvider.find('option').length;
+        if (providerOptionCount === 2) {
+            $selectProvider.find('option[value=""]').remove();
+            const firstProviderId = $selectProvider.find('option:first').attr('value');
+            $selectProvider.val(firstProviderId).trigger('change');
         }
 
         // If the manage mode is true, the appointment data should be loaded by default.
@@ -193,71 +193,29 @@ App.Pages.Booking = (function () {
                 })
                 .fadeIn();
         } else {
-            // Check if a specific service was selected (via URL parameter).
-            const selectedServiceId = App.Utils.Url.queryParam('service');
-
-            if (selectedServiceId && $selectService.find('option[value="' + selectedServiceId + '"]').length > 0) {
-                $selectService.val(selectedServiceId);
-            }
-
-            $selectService.trigger('change'); // Load the available hours.
-
-            // Check if a specific provider was selected.
+            // Handle query params for provider/service with provider-first flow
             const selectedProviderId = App.Utils.Url.queryParam('provider');
-
-            if (selectedProviderId && $selectProvider.find('option[value="' + selectedProviderId + '"]').length === 0) {
-                // Select a service of this provider in order to make the provider available in the select box.
-                for (const index in vars('available_providers')) {
-                    const provider = vars('available_providers')[index];
-
-                    if (Number(provider.id) === Number(selectedProviderId) && provider.services.length > 0) {
-                        $selectService.val(provider.services[0]).trigger('change');
-                    }
-                }
-            }
+            const selectedServiceId = App.Utils.Url.queryParam('service');
 
             if (selectedProviderId && $selectProvider.find('option[value="' + selectedProviderId + '"]').length > 0) {
                 $selectProvider.val(selectedProviderId).trigger('change');
             }
 
-            if (
-                (selectedServiceId && selectedProviderId) ||
-                (vars('available_services').length === 1 && vars('available_providers').length === 1)
-            ) {
-                if (!selectedServiceId) {
-                    $selectService.val(vars('available_services')[0].id).trigger('change');
-                }
-
-                if (!selectedProviderId) {
-                    $selectProvider.val(vars('available_providers')[0].id).trigger('change');
-                }
-
-                $('.active-step').removeClass('active-step');
-                $('#step-2').addClass('active-step');
-                $('#wizard-frame-1').hide();
-                $('#wizard-frame-2').fadeIn();
-
-                $selectService.closest('.wizard-frame').find('.button-next').trigger('click');
-
-                $(document).find('.book-step:first').hide();
-
-                $(document).find('.button-back:first').css('visibility', 'hidden');
-
-                $(document)
-                    .find('.book-step:not(:first)')
-                    .each((index, bookStepEl) =>
-                        $(bookStepEl)
-                            .find('strong')
-                            .text(index + 1),
-                    );
-            } else {
-                $('#wizard-frame-1')
-                    .css({
-                        'visibility': 'visible',
-                        'display': 'none',
-                    })
-                    .fadeIn();
+            if (selectedServiceId) {
+                const trySelectService = () => {
+                    if ($selectService.find('option[value="' + selectedServiceId + '"]').length > 0) {
+                        $selectService.val(selectedServiceId).trigger('change');
+                    }
+                };
+                setTimeout(trySelectService, 0);
             }
+
+            $('#wizard-frame-1')
+                .css({
+                    'visibility': 'visible',
+                    'display': 'none',
+                })
+                .fadeIn();
 
             prefillFromQueryParam('#first-name', 'first_name');
             prefillFromQueryParam('#last-name', 'last_name');
@@ -342,13 +300,46 @@ App.Pages.Booking = (function () {
         $selectProvider.on('change', (event) => {
             const $target = $(event.target);
 
+            // Populate services for selected provider (provider-first flow)
+            const providerId = $target.val();
+            const $serviceContainer = $selectService.parent();
+            $serviceContainer.prop('hidden', !Boolean(providerId));
+
+            $selectService.empty();
+            $selectService.append(new Option(lang('please_select'), ''));
+
+            const allServices = vars('available_services');
+
+            if (providerId === 'any-provider') {
+                allServices.forEach((service) => {
+                    $selectService.append(new Option(service.name, service.id));
+                });
+            } else if (providerId) {
+                const provider = vars('available_providers').find((p) => Number(p.id) === Number(providerId));
+                if (provider) {
+                    provider.services.forEach((serviceId) => {
+                        const service = allServices.find((s) => Number(s.id) === Number(serviceId));
+                        if (service) {
+                            $selectService.append(new Option(service.name, service.id));
+                        }
+                    });
+                }
+            }
+
+            // Autoselect if only one service
+            const serviceOptionCount = $selectService.find('option').length;
+            if (serviceOptionCount === 2) {
+                $selectService.find('option[value=""]').remove();
+                const firstServiceId = $selectService.find('option:first').attr('value');
+                $selectService.val(firstServiceId).trigger('change');
+            }
+
             const todayDateTimeObject = new Date();
             const todayDateTimeMoment = moment(todayDateTimeObject);
-
             App.Utils.UI.setDateTimePickerValue($selectDate, todayDateTimeObject);
 
             App.Http.Booking.getUnavailableDates(
-                $target.val(),
+                providerId,
                 $selectService.val(),
                 todayDateTimeMoment.format('YYYY-MM-DD'),
             );
@@ -365,36 +356,6 @@ App.Pages.Booking = (function () {
         $selectService.on('change', (event) => {
             const $target = $(event.target);
             const serviceId = $selectService.val();
-            $selectProvider.parent().prop('hidden', !Boolean(serviceId));
-
-            $selectProvider.empty();
-
-            $selectProvider.append(new Option(lang('please_select'), ''));
-
-            vars('available_providers').forEach((provider) => {
-                // If the current provider is able to provide the selected service, add him to the list box.
-                const canServeService =
-                    provider.services.filter((providerServiceId) => Number(providerServiceId) === Number(serviceId))
-                        .length > 0;
-
-                if (canServeService) {
-                    $selectProvider.append(new Option(provider.first_name + ' ' + provider.last_name, provider.id));
-                }
-            });
-
-            const providerOptionCount = $selectProvider.find('option').length;
-
-            // Remove the "Please Select" option, if there is only one provider available
-
-            if (providerOptionCount === 2) {
-                $selectProvider.find('option[value=""]').remove();
-            }
-
-            // Add the "Any Provider" entry
-
-            if (providerOptionCount > 2 && Boolean(Number(vars('display_any_provider')))) {
-                $(new Option(lang('any_provider'), 'any-provider')).insertAfter($selectProvider.find('option:first'));
-            }
 
             App.Http.Booking.getUnavailableDates(
                 $selectProvider.val(),
@@ -416,8 +377,8 @@ App.Pages.Booking = (function () {
         $('.button-next').on('click', (event) => {
             const $target = $(event.currentTarget);
 
-            // If we are on the first step and there is no provider selected do not continue with the next step.
-            if ($target.attr('data-step_index') === '1' && !$selectProvider.val()) {
+            // If we are on the first step and there is no provider or service selected do not continue with the next step.
+            if ($target.attr('data-step_index') === '1' && (!$selectProvider.val() || !$selectService.val())) {
                 return;
             }
 
@@ -865,9 +826,9 @@ App.Pages.Booking = (function () {
      */
     function applyAppointmentData(appointment, provider, customer) {
         try {
-            // Select Service & Provider
+            // Select Provider then Service (provider-first)
+            $selectProvider.val(appointment.id_users_provider).trigger('change');
             $selectService.val(appointment.id_services).trigger('change');
-            $selectProvider.val(appointment.id_users_provider);
 
             // Set Appointment Date
             const startMoment = moment(appointment.start_datetime);
