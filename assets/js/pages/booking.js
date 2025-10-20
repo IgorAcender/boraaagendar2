@@ -108,8 +108,11 @@ App.Pages.Booking = (function () {
             minDate: moment().subtract(1, 'day').set({hours: 23, minutes: 59, seconds: 59}).toDate(),
             maxDate: moment().add(vars('future_booking_limit'), 'days').toDate(),
             onChange: (selectedDates) => {
-                App.Http.Booking.getAvailableHours(moment(selectedDates[0]).format('YYYY-MM-DD'));
-                App.Pages.Booking.updateConfirmFrame();
+                // Only fetch hours when provider and service are selected
+                if ($selectProvider.val() && $selectService.val()) {
+                    App.Http.Booking.getAvailableHours(moment(selectedDates[0]).format('YYYY-MM-DD'));
+                    App.Pages.Booking.updateConfirmFrame();
+                }
             },
 
             onMonthChange: (selectedDates, dateStr, instance) => {
@@ -208,6 +211,19 @@ App.Pages.Booking = (function () {
                     }
                 };
                 setTimeout(trySelectService, 0);
+            } else if (selectedProviderId) {
+                // No service param but provider param given: auto-select first service of provider
+                const provider = vars('available_providers').find(
+                    (p) => Number(p.id) === Number(selectedProviderId),
+                );
+                if (provider && provider.services?.length) {
+                    setTimeout(() => {
+                        const firstService = provider.services[0];
+                        if ($selectService.find('option[value="' + firstService + '"]').length > 0) {
+                            $selectService.val(firstService).trigger('change');
+                        }
+                    }, 0);
+                }
             }
 
             $('#wizard-frame-1')
