@@ -27,6 +27,11 @@ App.Http.Booking = (function () {
     const MONTH_SEARCH_LIMIT = 2; // Months in the future
 
     const moment = window.moment;
+    function selectedTimezone() {
+        const $tz = $('#select-timezone');
+        const defaultTz = vars('default_timezone') || 'UTC';
+        return $tz.length ? ($tz.val() || defaultTz) : defaultTz;
+    }
 
     let unavailableDatesBackup;
     let selectedDateStringBackup;
@@ -101,13 +106,13 @@ App.Http.Booking = (function () {
                 }
 
                 const providerTimezone = provider.timezone;
-                const selectedTimezone = $('#select-timezone').val();
+                const selectedTz = selectedTimezone();
                 const timeFormat = vars('time_format') === 'regular' ? 'h:mm a' : 'HH:mm';
 
                 response.forEach((availableHour) => {
                     const availableHourMoment = moment
                         .tz(selectedDate + ' ' + availableHour + ':00', providerTimezone)
-                        .tz(selectedTimezone);
+                        .tz(selectedTz);
 
                     if (availableHourMoment.format('YYYY-MM-DD') !== selectedDate) {
                         return; // Due to the selected timezone the available hour belongs to another date.

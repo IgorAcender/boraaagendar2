@@ -20,18 +20,10 @@
 
             <div class="col-12 col-md-6">
                 <div id="select-time">
-                    <div class="mb-3">
-                        <label for="select-timezone" class="form-label">
-                            <?= lang('timezone') ?>
-                        </label>
-                        <?php component('timezone_dropdown', [
-                            'attributes' => 'id="select-timezone" class="form-select" value="UTC"',
-                            'grouped_timezones' => $grouped_timezones,
-                        ]); ?>
-                    </div>
+                    <!-- Timezone selection removed: use admin default timezone -->
+                    <input type="hidden" id="select-timezone" value="<?= e(vars('default_timezone') ?: 'UTC') ?>">
 
                     <?php slot('after_select_timezone'); ?>
-
 
                     <div id="available-hours"></div>
 

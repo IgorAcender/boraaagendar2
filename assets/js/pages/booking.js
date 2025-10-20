@@ -21,6 +21,17 @@ App.Pages.Booking = (function () {
     const $selectService = $('#select-service');
     const $selectProvider = $('#select-provider');
     const $selectTimezone = $('#select-timezone');
+    function getSelectedTimezone() {
+        const defaultTz = vars('default_timezone') || 'UTC';
+        if (!$selectTimezone.length) return defaultTz;
+        const tag = ($selectTimezone.prop('tagName') || '').toLowerCase();
+        if (tag === 'select') {
+            // If dropdown exists use its current value or default
+            return $selectTimezone.val() || defaultTz;
+        }
+        // Hidden input fallback
+        return $selectTimezone.val() || defaultTz;
+    }
     const $firstName = $('#first-name');
     const $lastName = $('#last-name');
     const $email = $('#email');
@@ -168,9 +179,17 @@ App.Pages.Booking = (function () {
 
         App.Utils.UI.setDateTimePickerValue($selectDate, new Date());
 
-        const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const isTimezoneSupported = $selectTimezone.find(`option[value="${browserTimezone}"]`).length > 0;
-        $selectTimezone.val(isTimezoneSupported ? browserTimezone : 'UTC');
+        const defaultTz = vars('default_timezone') || 'UTC';
+        if ($selectTimezone.length) {
+            const tag = ($selectTimezone.prop('tagName') || '').toLowerCase();
+            if (tag === 'select') {
+                const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const isTimezoneSupported = $selectTimezone.find(`option[value="${browserTimezone}"]`).length > 0;
+                $selectTimezone.val(isTimezoneSupported ? browserTimezone : defaultTz);
+            } else {
+                $selectTimezone.val(defaultTz);
+            }
+        }
 
         // Bind the event handlers (might not be necessary every time we use this class).
         addEventListeners();
@@ -766,7 +785,7 @@ App.Pages.Booking = (function () {
             address: $address.val(),
             city: $city.val(),
             zip_code: $zipCode.val(),
-            timezone: $selectTimezone.val(),
+            timezone: getSelectedTimezone(),
             custom_field_1: $customField1.val(),
             custom_field_2: $customField2.val(),
             custom_field_3: $customField3.val(),
