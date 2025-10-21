@@ -49,21 +49,30 @@
 $active_group = 'default';
 $query_builder = TRUE;
 
-$db['default']['hostname'] = Config::DB_HOST;
-$db['default']['username'] = Config::DB_USERNAME;
-$db['default']['password'] = Config::DB_PASSWORD;
-$db['default']['database'] = Config::DB_NAME;
-$db['default']['dbdriver'] = 'mysqli';
-$db['default']['dbprefix'] = 'ea_';
-$db['default']['pconnect'] = FALSE;
-$db['default']['db_debug'] = TRUE;
-$db['default']['cache_on'] = FALSE;
-$db['default']['cachedir'] = '';
-$db['default']['char_set'] = 'utf8mb4';
-$db['default']['dbcollat'] = 'utf8mb4_unicode_ci';
-$db['default']['swap_pre'] = '';
-$db['default']['autoinit'] = TRUE;
-$db['default']['stricton'] = FALSE;
+// Try to resolve per-tenant DB settings first.
+require_once __DIR__ . '/../helpers/tenant_helper.php';
+$__tenantCfg = tenant_db_config();
+
+if ($__tenantCfg !== null) {
+    $db['default'] = $__tenantCfg;
+} else {
+    // Fallback to global Config constants (single-tenant default)
+    $db['default']['hostname'] = Config::DB_HOST;
+    $db['default']['username'] = Config::DB_USERNAME;
+    $db['default']['password'] = Config::DB_PASSWORD;
+    $db['default']['database'] = Config::DB_NAME;
+    $db['default']['dbdriver'] = 'mysqli';
+    $db['default']['dbprefix'] = 'ea_';
+    $db['default']['pconnect'] = FALSE;
+    $db['default']['db_debug'] = TRUE;
+    $db['default']['cache_on'] = FALSE;
+    $db['default']['cachedir'] = '';
+    $db['default']['char_set'] = 'utf8mb4';
+    $db['default']['dbcollat'] = 'utf8mb4_unicode_ci';
+    $db['default']['swap_pre'] = '';
+    $db['default']['autoinit'] = TRUE;
+    $db['default']['stricton'] = FALSE;
+}
 
 /* End of file database.php */
 /* Location: ./application/config/database.php */
