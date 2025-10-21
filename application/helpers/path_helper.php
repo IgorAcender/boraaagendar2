@@ -44,3 +44,26 @@ if (!function_exists('base_path')) {
         return FCPATH . trim($path);
     }
 }
+
+if (!function_exists('uploads_path')) {
+    /**
+     * Get the path to the uploads folder (tenant-scoped).
+     *
+     * @param string $path Relative path under uploads directory.
+     * @param bool $ensure_dir When true, ensures the directory exists.
+     *
+     * @return string
+     */
+    function uploads_path(string $path = '', bool $ensure_dir = true): string
+    {
+        $host = function_exists('tenant_current_host') ? (tenant_current_host() ?: 'default') : 'default';
+        $safeHost = preg_replace('/[^a-z0-9._-]+/i', '_', $host);
+        $base = FCPATH . 'storage/uploads/' . $safeHost . '/';
+
+        if ($ensure_dir && !is_dir($base)) {
+            @mkdir($base, 0775, true);
+        }
+
+        return $base . ltrim($path, '/');
+    }
+}

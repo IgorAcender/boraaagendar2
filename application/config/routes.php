@@ -164,5 +164,9 @@ $route['api/v1/availabilities']['get'] = 'api/v1/availabilities_api_v1/get';
 |
 */
 
+// Self-service signup and provisioning
+$route['signup']['get'] = 'signup/index';
+$route['signup/store']['post'] = 'signup/store';
+
 /* End of file routes.php */
 /* Location: ./application/config/routes.php */

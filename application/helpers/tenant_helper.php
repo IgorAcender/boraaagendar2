@@ -105,7 +105,9 @@ if (!function_exists('tenant_registry_write')) {
         // Export as PHP file returning array
         $export = var_export($registry, true);
         $content = "<?php\nreturn " . $export . ";\n";
-        file_put_contents($path, $content);
+        $tmp = $path . '.tmp.' . uniqid('', true);
+        file_put_contents($tmp, $content, LOCK_EX);
+        // Atomic replace
+        rename($tmp, $path);
     }
 }
-

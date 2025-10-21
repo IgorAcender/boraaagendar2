@@ -44,6 +44,32 @@ class Config
     const DB_PASSWORD = 'password';
 
     // ------------------------------------------------------------------------
+    // MULTITENANT PROVISIONING SETTINGS
+    // ------------------------------------------------------------------------
+
+    // Database server where tenant databases will be created.
+    // In most setups this is the same host as DB_HOST.
+    const PROVISION_DB_HOST = 'mysql';
+    // Admin user with privileges to CREATE DATABASE/USER and GRANT on the server above.
+    const PROVISION_DB_USERNAME = 'root';
+    const PROVISION_DB_PASSWORD = 'rootpassword';
+    // Optional prefixes for auto-generated tenant DB names and users.
+    const DB_NAME_PREFIX = 'ea_';
+    const DB_USER_PREFIX = 'ea_';
+
+    // Optionally restrict allowed signup hostnames to a base domain
+    // e.g. 'seuapp.com' means only subdomains like x.seuapp.com are allowed.
+    // Leave empty to allow any host (not recommended for public SaaS).
+    const ALLOWED_SIGNUP_BASE_DOMAIN = '';
+
+    // ------------------------------------------------------------------------
+    // GOOGLE reCAPTCHA (Signup)
+    // ------------------------------------------------------------------------
+    // If set, the /signup form will require reCAPTCHA validation.
+    const RECAPTCHA_SITE_KEY = '';
+    const RECAPTCHA_SECRET   = '';
+
+    // ------------------------------------------------------------------------
     // GOOGLE CALENDAR SYNC
     // ------------------------------------------------------------------------
 

@@ -52,7 +52,13 @@ $autoload['packages'] = [];
 |	$autoload['libraries'] = array('database', 'session', 'xmlrpc');
 */
 
-$autoload['libraries'] = ['database', 'session'];
+// Conditionally skip database autoload for signup provisioning pages to allow
+// bootstrap without an existing tenant database.
+if (!is_cli() && isset($_SERVER['REQUEST_URI']) && preg_match('#/(index\.php/)?signup($|/)#i', $_SERVER['REQUEST_URI'])) {
+    $autoload['libraries'] = ['session'];
+} else {
+    $autoload['libraries'] = ['database', 'session'];
+}
 
 /*
 | -------------------------------------------------------------------

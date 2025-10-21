@@ -86,25 +86,30 @@ class Instance
      */
     public function seed(): string
     {
-        // Settings
+        // Settings (allow override via env for provisioning)
+        $companyName = getenv('EA_COMPANY_NAME') ?: 'Company Name';
+        $companyEmail = getenv('EA_COMPANY_EMAIL') ?: 'info@example.org';
+        $companyLink = getenv('EA_COMPANY_LINK') ?: 'https://example.org';
 
         setting([
-            'company_name' => 'Company Name',
-            'company_email' => 'info@example.org',
-            'company_link' => 'https://example.org',
+            'company_name' => $companyName,
+            'company_email' => $companyEmail,
+            'company_link' => $companyLink,
         ]);
 
         // Admin
 
-        $password = 'administrator';
+        $password = getenv('EA_ADMIN_PASSWORD') ?: 'administrator';
+        $username = getenv('EA_ADMIN_USERNAME') ?: 'administrator';
+        $adminEmail = getenv('EA_ADMIN_EMAIL') ?: 'john@example.org';
 
         $this->CI->admins_model->save([
             'first_name' => 'John',
             'last_name' => 'Doe',
-            'email' => 'john@example.org',
+            'email' => $adminEmail,
             'phone_number' => '+10000000000',
             'settings' => [
-                'username' => 'administrator',
+                'username' => $username,
                 'password' => $password,
                 'notifications' => true,
                 'calendar_view' => CALENDAR_VIEW_DEFAULT,
@@ -164,10 +169,16 @@ class Instance
      */
     public function backup(?string $path = null): void
     {
-        $path = $path ?? APPPATH . '/../storage/backups';
+        // Put backups under a per-tenant directory to avoid mixing files.
+        $host = function_exists('tenant_current_host') ? (tenant_current_host() ?: 'default') : 'default';
+        $safeHost = preg_replace('/[^a-z0-9._-]+/i', '_', $host);
+        $defaultPath = APPPATH . '/../storage/backups/' . $safeHost;
+        $path = $path ?? $defaultPath;
 
         if (!file_exists($path)) {
-            throw new InvalidArgumentException('The backup path does not exist: ' . $path);
+            if (!@mkdir($path, 0775, true) && !is_dir($path)) {
+                throw new InvalidArgumentException('The backup path does not exist and could not be created: ' . $path);
+            }
         }
 
         if (!is_writable($path)) {

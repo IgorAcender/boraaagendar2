@@ -73,6 +73,32 @@ This script sets `TENANT_HOST` for each host and runs `console migrate` in a chi
 ## Notes & Recommendations
 
 - DNS: Configure wildcard DNS (e.g., `*.seuapp.com`) and route all subdomains to the same application.
-- Isolation: Consider separating uploads per tenant (e.g., `storage/uploads/<tenant>/...`) if you need per-tenant backups of files.
+- Isolation: Uploads are tenant-scoped via `uploads_path()` helper (`storage/uploads/<host>/...`).
 - Backups: Back up each tenant’s database individually for easier restore.
 - Monitoring: Track errors and performance per host.
+
+## Self-service Signup (Web)
+
+- A simple provisioning page is available at `/signup`.
+- It registers the tenant in `tenants/registry.php` and triggers `console install` in a child PHP process for that host.
+- It automatically creates the tenant database and user using the provisioning credentials in `config.php`.
+- You only provide the subdomain/host and the initial admin/company data.
+
+### Provisioning Credentials
+
+Set the following in `config.php` (see `config-sample.php`):
+
+```
+const PROVISION_DB_HOST = 'mysql';
+const PROVISION_DB_USERNAME = 'root_or_admin_with_create_privileges';
+const PROVISION_DB_PASSWORD = 'admin_password';
+const DB_NAME_PREFIX = 'ea_';
+const DB_USER_PREFIX = 'ea_';
+```
+
+The user must have privileges to `CREATE DATABASE`, `CREATE USER` and `GRANT` on the target server.
+
+### Security & Email
+
+- reCAPTCHA: set `RECAPTCHA_SITE_KEY` and `RECAPTCHA_SECRET` in `config.php` to enable bot protection on `/signup`.
+- Email: configure `application/config/email.php` (SMTP recommended) so the welcome email is delivered to the admin.

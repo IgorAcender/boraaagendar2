@@ -94,7 +94,7 @@ class EA_Controller extends CI_Controller
     {
         $user_id = session('user_id');
 
-        if (!$user_id || !$this->db->table_exists('users')) {
+        if (!$user_id || !isset($this->db) || !method_exists($this->db, 'table_exists') || !$this->db->table_exists('users')) {
             return;
         }
 
@@ -153,7 +153,7 @@ class EA_Controller extends CI_Controller
      */
     private function configure_timezone(): void
     {
-        if (!$this->db->table_exists('settings')) {
+        if (!isset($this->db) || !method_exists($this->db, 'table_exists') || !$this->db->table_exists('settings')) {
             return;
         }
 
