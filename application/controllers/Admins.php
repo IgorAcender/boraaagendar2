@@ -96,11 +96,43 @@ class Admins extends EA_Controller
             'default_timezone' => setting('default_timezone'),
         ]);
 
+        // Limit timezone dropdown to Brazil-only entries on Admins page
+        $grouped_timezones = $this->timezones->to_grouped_array();
+
+        $allowed_america_timezones = [
+            'America/Araguaina',
+            'America/Bahia',
+            'America/Belem',
+            'America/Fortaleza',
+            'America/Maceio',
+            'America/Recife',
+            'America/Santarem',
+            'America/Sao_Paulo',
+            'America/Manaus',
+            'America/Porto_Velho',
+            'America/Rio_Branco',
+            'America/Porto_Acre',
+            'America/Noronha',
+        ];
+
+        $filtered_grouped_timezones = [];
+
+        if (isset($grouped_timezones['America'])) {
+            $filtered_grouped_timezones['America'] = array_intersect_key(
+                $grouped_timezones['America'],
+                array_flip($allowed_america_timezones)
+            );
+        }
+
+        if (isset($grouped_timezones['Brazil'])) {
+            $filtered_grouped_timezones['Brazil'] = $grouped_timezones['Brazil'];
+        }
+
         html_vars([
             'page_title' => lang('admins'),
             'active_menu' => PRIV_USERS,
             'user_display_name' => $this->accounts->get_user_display_name($user_id),
-            'grouped_timezones' => $this->timezones->to_grouped_array(),
+            'grouped_timezones' => $filtered_grouped_timezones,
             'privileges' => $this->roles_model->get_permissions_by_slug($role_slug),
         ]);
 
