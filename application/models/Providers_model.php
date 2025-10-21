@@ -52,6 +52,14 @@ class Providers_model extends EA_Model
     ];
 
     /**
+     * Whether the users table contains a dedicated photo column.
+     */
+    protected function supports_photo_column(): bool
+    {
+        return $this->db->field_exists('photo', 'users');
+    }
+
+    /**
      * Save (insert or update) a provider.
      *
      * @param array $provider Associative array with the provider data.
@@ -228,6 +236,12 @@ class Providers_model extends EA_Model
             $this->cast($provider);
             $provider['settings'] = $this->get_settings($provider['id']);
             $provider['services'] = $this->get_service_ids($provider['id']);
+            // Backward compatibility: expose photo from settings if column is missing or empty
+            if (!$this->supports_photo_column() || empty($provider['photo'])) {
+                if (!empty($provider['settings']['photo'])) {
+                    $provider['photo'] = $provider['settings']['photo'];
+                }
+            }
         }
 
         return $providers;
@@ -303,6 +317,10 @@ class Providers_model extends EA_Model
         $service_ids = $provider['services'];
 
         $settings = $provider['settings'];
+        // If users.photo column doesn't exist, drop incoming photo to avoid DB error
+        if (array_key_exists('photo', $provider) && !$this->supports_photo_column()) {
+            unset($provider['photo']);
+        }
 
         unset($provider['services'], $provider['settings']);
 
@@ -389,6 +407,10 @@ class Providers_model extends EA_Model
         $service_ids = $provider['services'];
 
         $settings = $provider['settings'];
+        // If users.photo column doesn't exist, drop incoming photo to avoid DB error
+        if (array_key_exists('photo', $provider) && !$this->supports_photo_column()) {
+            unset($provider['photo']);
+        }
 
         unset($provider['services'], $provider['settings']);
 
@@ -592,6 +614,11 @@ class Providers_model extends EA_Model
         $this->cast($provider);
         $provider['settings'] = $this->get_settings($provider['id']);
         $provider['services'] = $this->get_service_ids($provider['id']);
+        if (!$this->supports_photo_column() || empty($provider['photo'])) {
+            if (!empty($provider['settings']['photo'])) {
+                $provider['photo'] = $provider['settings']['photo'];
+            }
+        }
 
         return $provider;
     }
@@ -651,6 +678,11 @@ class Providers_model extends EA_Model
             $this->cast($provider);
             $provider['settings'] = $this->get_settings($provider['id']);
             $provider['services'] = $this->get_service_ids($provider['id']);
+            if (!$this->supports_photo_column() || empty($provider['photo'])) {
+                if (!empty($provider['settings']['photo'])) {
+                    $provider['photo'] = $provider['settings']['photo'];
+                }
+            }
         }
 
         return $providers;
@@ -709,6 +741,11 @@ class Providers_model extends EA_Model
             $this->cast($provider);
             $provider['settings'] = $this->get_settings($provider['id']);
             $provider['services'] = $this->get_service_ids($provider['id']);
+            if (!$this->supports_photo_column() || empty($provider['photo'])) {
+                if (!empty($provider['settings']['photo'])) {
+                    $provider['photo'] = $provider['settings']['photo'];
+                }
+            }
         }
 
         return $providers;
