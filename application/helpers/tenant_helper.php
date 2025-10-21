@@ -56,9 +56,14 @@ if (!function_exists('tenant_db_config')) {
         // Allow exact match and base-domain match (strip port).
         $hostKey = strtolower(preg_replace('/:.+$/', '', $host));
 
-        if (isset($registry[$hostKey]) && is_array($registry[$hostKey])) {
-            $cfg = $registry[$hostKey];
-            // Normalize keys and provide sensible defaults.
+        // Helper to normalize different registry shapes to DB config
+        $toDbCfg = static function (array $entry): ?array {
+            $cfg = $entry;
+            // Support nested shape: ['db' => [...], 'aliases' => [...]]
+            if (isset($entry['db']) && is_array($entry['db'])) {
+                $cfg = $entry['db'];
+            }
+
             $dbHost = $cfg['db_host'] ?? 'localhost';
             $dbName = $cfg['db_name'] ?? null;
             $dbUser = $cfg['db_user'] ?? null;
@@ -86,6 +91,36 @@ if (!function_exists('tenant_db_config')) {
                 'autoinit' => true,
                 'stricton' => false,
             ];
+        };
+
+        // 1) Exact match
+        if (isset($registry[$hostKey]) && is_array($registry[$hostKey])) {
+            $db = $toDbCfg($registry[$hostKey]);
+            if ($db) { return $db; }
+        }
+
+        // 2) Alias match (if entries include ['aliases' => ['host1', 'host2']])
+        foreach ($registry as $entry) {
+            if (!is_array($entry)) { continue; }
+            $aliases = $entry['aliases'] ?? [];
+            if (!is_array($aliases)) { continue; }
+            foreach ($aliases as $alias) {
+                $aliasKey = strtolower(preg_replace('/:.+$/', '', (string)$alias));
+                if ($aliasKey === $hostKey) {
+                    $db = $toDbCfg($entry);
+                    if ($db) { return $db; }
+                }
+            }
+        }
+
+        // 3) Fallback to default tenant host (env), to ease domain changes
+        $fallbackHost = getenv('DEFAULT_TENANT_HOST') ?: getenv('TENANT_FALLBACK_HOST');
+        if ($fallbackHost) {
+            $fallbackKey = strtolower(preg_replace('/:.+$/', '', $fallbackHost));
+            if (isset($registry[$fallbackKey]) && is_array($registry[$fallbackKey])) {
+                $db = $toDbCfg($registry[$fallbackKey]);
+                if ($db) { return $db; }
+            }
         }
 
         return null;
