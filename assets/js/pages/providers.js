@@ -30,6 +30,9 @@ App.Pages.Providers = (function () {
     const $notes = $('#notes');
     const $language = $('#language');
     const $timezone = $('#timezone');
+    const $photo = $('#photo');
+    const $photoPreview = $('#photo-preview');
+    const $removePhoto = $('#remove-photo');
     const $ldapDn = $('#ldap-dn');
     const $username = $('#username');
     const $password = $('#password');
@@ -40,6 +43,7 @@ App.Pages.Providers = (function () {
     let filterResults = {};
     let filterLimit = 20;
     let workingPlanManager;
+    let photoBase64 = '';
 
     /**
      * Add the page event listeners.
@@ -169,6 +173,7 @@ App.Pages.Providers = (function () {
                 notes: $notes.val(),
                 language: $language.val(),
                 timezone: $timezone.val(),
+                photo: photoBase64,
                 ldap_dn: $ldapDn.val(),
                 settings: {
                     username: $username.val(),
@@ -202,6 +207,28 @@ App.Pages.Providers = (function () {
             }
 
             App.Pages.Providers.save(provider);
+        });
+
+        // Event: Photo input change
+        $providers.on('change', '#photo', () => {
+            const file = $photo[0].files[0];
+            if (!file) {
+                $removePhoto.trigger('click');
+                return;
+            }
+            App.Utils.File.toBase64(file).then((base64) => {
+                photoBase64 = base64;
+                $photoPreview.attr('src', base64).prop('hidden', false);
+                $removePhoto.prop('hidden', false);
+            });
+        });
+
+        // Event: Remove photo click
+        $providers.on('click', '#remove-photo', () => {
+            photoBase64 = '';
+            $photo.val('');
+            $photoPreview.attr('src', '#').prop('hidden', true);
+            $removePhoto.prop('hidden', true);
         });
 
         /**
@@ -364,6 +391,12 @@ App.Pages.Providers = (function () {
         $('#providers .working-plan tbody').empty();
         $('#providers .breaks tbody').empty();
         $('#providers .working-plan-exceptions tbody').empty();
+
+        // Reset photo controls
+        photoBase64 = '';
+        $photo.val('');
+        $photoPreview.attr('src', '#').prop('hidden', true);
+        $removePhoto.prop('hidden', true);
     }
 
     /**
@@ -387,6 +420,16 @@ App.Pages.Providers = (function () {
         $language.val(provider.language);
         $timezone.val(provider.timezone);
         $ldapDn.val(provider.ldap_dn);
+
+        // Photo preview
+        photoBase64 = provider.photo || '';
+        if (photoBase64) {
+            $photoPreview.attr('src', photoBase64).prop('hidden', false);
+            $removePhoto.prop('hidden', false);
+        } else {
+            $photoPreview.attr('src', '#').prop('hidden', true);
+            $removePhoto.prop('hidden', true);
+        }
 
         $username.val(provider.settings.username);
         $calendarView.val(provider.settings.calendar_view);

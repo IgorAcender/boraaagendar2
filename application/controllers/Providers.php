@@ -32,6 +32,7 @@ class Providers extends EA_Controller
         'state',
         'zip_code',
         'notes',
+        'photo',
         'timezone',
         'language',
         'is_private',

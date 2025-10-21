@@ -38,6 +38,12 @@
 
                 <?php slot('after_select_provider'); ?>
 
+                <div id="selected-provider" class="d-flex align-items-center mb-3" hidden>
+                    <img id="selected-provider-photo" src="#" alt="<?= lang('provider') ?>" class="rounded-circle me-3"
+                         style="width: 56px; height: 56px; object-fit: cover;">
+                    <div id="selected-provider-name" class="fw-semibold"></div>
+                </div>
+
                 <!-- Then select service (filtered by provider) -->
                 <div class="mb-3" hidden>
                     <label for="select-service">

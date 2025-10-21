@@ -104,6 +104,21 @@
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label" for="photo">
+                                    <?= lang('profile_photo') ?>
+                                </label>
+                                <input type="file" id="photo" class="form-control" accept="image/*" disabled>
+                                <div class="form-text text-muted">
+                                    <small><?= lang('profile_photo_hint') ?></small>
+                                </div>
+                                <img src="#" alt="<?= lang('profile_photo') ?>" id="photo-preview" class="mt-2 rounded"
+                                     style="max-width: 160px; max-height: 160px; object-fit: cover;" hidden>
+                                <button id="remove-photo" class="btn btn-sm btn-outline-secondary mt-2" type="button" hidden>
+                                    <?= lang('remove_photo') ?>
+                                </button>
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="form-label" for="email">
                                     <?= lang('email') ?>
                                     <span class="text-danger" hidden>*</span>

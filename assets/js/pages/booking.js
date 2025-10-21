@@ -382,6 +382,39 @@ App.Pages.Booking = (function () {
             App.Pages.Booking.updateConfirmFrame();
         });
 
+        // Update selected provider preview when selection changes
+        function updateSelectedProviderPreview() {
+            const providerId = $selectProvider.val();
+            const $container = $('#selected-provider');
+            if (!providerId || providerId === 'any-provider') {
+                $container.prop('hidden', true);
+                return;
+            }
+            const provider = (vars('available_providers') || []).find(
+                (p) => Number(p.id) === Number(providerId),
+            );
+            if (!provider) {
+                $container.prop('hidden', true);
+                return;
+            }
+            const fullName = `${provider.first_name} ${provider.last_name}`.trim();
+            $('#selected-provider-name').text(fullName || '');
+            if (provider.photo) {
+                $('#selected-provider-photo').attr('src', provider.photo);
+                $container.prop('hidden', false);
+            } else {
+                // No photo available
+                $container.prop('hidden', true);
+            }
+        }
+
+        $selectProvider.on('change', () => {
+            updateSelectedProviderPreview();
+        });
+
+        // Initial preview render
+        updateSelectedProviderPreview();
+
         /**
          * Event: Selected Service "Changed"
          *
