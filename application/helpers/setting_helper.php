@@ -37,6 +37,15 @@ if (!function_exists('setting')) {
         /** @var EA_Controller $CI */
         $CI = &get_instance();
 
+        // If database is not available (e.g. during /signup before any tenant exists),
+        // gracefully return defaults instead of triggering DB calls.
+        $db_available = isset($CI->db) && is_object($CI->db) && method_exists($CI->db, 'table_exists');
+
+        if (!$db_available || !$CI->db->table_exists('settings')) {
+            // When $key is an array (set operation), skip silently.
+            return is_array($key) ? null : $default;
+        }
+
         $CI->load->model('settings_model');
 
         if (empty($key)) {
