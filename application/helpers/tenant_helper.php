@@ -17,26 +17,61 @@ if (!function_exists('tenant_current_host')) {
     }
 }
 
+if (!function_exists('tenant_registry_primary_path')) {
+    function tenant_registry_primary_path(): string
+    {
+        $base = defined('FCPATH') ? FCPATH : getcwd();
+        return rtrim($base, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'tenants' . DIRECTORY_SEPARATOR . 'registry.php';
+    }
+}
+
+if (!function_exists('tenant_registry_fallback_path')) {
+    function tenant_registry_fallback_path(): string
+    {
+        $base = defined('FCPATH') ? FCPATH : getcwd();
+        return rtrim($base, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'tenants' . DIRECTORY_SEPARATOR . 'registry.php';
+    }
+}
+
 if (!function_exists('tenant_registry_path')) {
     function tenant_registry_path(): string
     {
-        // FCPATH is defined by index.php during bootstrap; fall back to cwd.
-        $base = defined('FCPATH') ? FCPATH : getcwd();
-        return rtrim($base, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'tenants' . DIRECTORY_SEPARATOR . 'registry.php';
+        $primary = tenant_registry_primary_path();
+        // If primary exists and is writable (or parent dir is writable), use it, else fallback under storage/
+        $primaryDir = dirname($primary);
+        if ((file_exists($primary) && is_writable($primary)) || (!file_exists($primary) && is_dir($primaryDir) && is_writable($primaryDir))) {
+            return $primary;
+        }
+
+        return tenant_registry_fallback_path();
     }
 }
 
 if (!function_exists('tenant_registry')) {
     function tenant_registry(): array
     {
-        $path = tenant_registry_path();
-        if (!file_exists($path)) {
-            return [];
+        $primary = tenant_registry_primary_path();
+        $fallback = tenant_registry_fallback_path();
+
+        $dataPrimary = null;
+        $dataFallback = null;
+
+        if (file_exists($primary)) {
+            $dataPrimary = include $primary;
+        }
+        if (file_exists($fallback)) {
+            $dataFallback = include $fallback;
         }
 
-        $data = include $path;
-        if (is_array($data)) {
-            return $data;
+        // Prefer the non-empty registry; fallback to any array
+        if (is_array($dataFallback) && (!is_array($dataPrimary) || empty($dataPrimary))) {
+            return $dataFallback;
+        }
+        if (is_array($dataPrimary)) {
+            return $dataPrimary;
+        }
+        if (is_array($dataFallback)) {
+            return $dataFallback;
         }
 
         return [];
@@ -134,15 +169,34 @@ if (!function_exists('tenant_registry_write')) {
         $path = tenant_registry_path();
         $dir = dirname($path);
         if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
+            @mkdir($dir, 0775, true);
+        }
+
+        // Ensure writability
+        if (file_exists($path) && !is_writable($path)) {
+            @chmod($path, 0664);
+        }
+        if (!is_writable($dir)) {
+            @chmod($dir, 0775);
         }
 
         // Export as PHP file returning array
         $export = var_export($registry, true);
         $content = "<?php\nreturn " . $export . ";\n";
         $tmp = $path . '.tmp.' . uniqid('', true);
-        file_put_contents($tmp, $content, LOCK_EX);
-        // Atomic replace
-        rename($tmp, $path);
+        $bytes = @file_put_contents($tmp, $content, LOCK_EX);
+        if ($bytes === false) {
+            // Fallback to direct write
+            if (@file_put_contents($path, $content) === false) {
+                throw new RuntimeException('Cannot write tenant registry at: ' . $path);
+            }
+            return;
+        }
+        if (!@rename($tmp, $path)) {
+            // Fallback to direct write
+            if (@file_put_contents($path, $content) === false) {
+                throw new RuntimeException('Cannot finalize tenant registry write at: ' . $path);
+            }
+        }
     }
 }

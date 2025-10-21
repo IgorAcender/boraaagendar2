@@ -162,6 +162,12 @@ class Signup extends EA_Controller
             ];
             tenant_registry_write($registry);
 
+            // Verify that registry persisted (avoid running install on fallback DB)
+            $check = tenant_registry();
+            if (!isset($check[$hostKey])) {
+                throw new RuntimeException('Falha ao gravar o registro de tenants (permissões de escrita).');
+            }
+
             // Spawn console install for that tenant with admin/company overrides
             $root = FCPATH;
             // Prefer explicit PHP CLI binary; fallback to common locations or 'php'.
