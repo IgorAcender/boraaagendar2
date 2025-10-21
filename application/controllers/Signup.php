@@ -48,11 +48,24 @@ class Signup extends EA_Controller
     public function store(): void
     {
         try {
+            $allowedBaseDomain = getenv('ALLOWED_SIGNUP_BASE_DOMAIN') ?: (defined('Config::ALLOWED_SIGNUP_BASE_DOMAIN') ? Config::ALLOWED_SIGNUP_BASE_DOMAIN : '');
+
+            $subdomain = trim((string) request('subdomain', ''));
             $host = trim((string) request('host'));
             $company_name = trim((string) request('company_name'));
             $admin_email = trim((string) request('admin_email'));
             $admin_username = trim((string) request('admin_username'));
             $admin_password = (string) request('admin_password');
+
+            // If base domain is configured and subdomain provided, build host from it.
+            if (!$host && $allowedBaseDomain && $subdomain) {
+                // Validate subdomain (basic)
+                if (!preg_match('/^[a-z0-9]([a-z0-9-]{1,30}[a-z0-9])?$/i', $subdomain)) {
+                    throw new InvalidArgumentException('Subdomínio inválido. Use letras, números e hífen.');
+                }
+
+                $host = strtolower($subdomain) . '.' . ltrim($allowedBaseDomain, '.');
+            }
 
             if (!$host || !$company_name || !$admin_email || !$admin_username || !$admin_password) {
                 throw new InvalidArgumentException('Missing required fields.');
@@ -78,7 +91,6 @@ class Signup extends EA_Controller
                 throw new InvalidArgumentException('Invalid host. Use a full domain like cliente.seuapp.com');
             }
 
-            $allowedBaseDomain = getenv('ALLOWED_SIGNUP_BASE_DOMAIN') ?: (defined('Config::ALLOWED_SIGNUP_BASE_DOMAIN') ? Config::ALLOWED_SIGNUP_BASE_DOMAIN : '');
             if ($allowedBaseDomain) {
                 $base = '.' . ltrim($allowedBaseDomain, '.');
                 if (!str_ends_with($host, $base)) {
