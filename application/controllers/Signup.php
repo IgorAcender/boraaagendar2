@@ -276,47 +276,58 @@ class Signup extends EA_Controller
 
     private function send_welcome_email(string $to, string $host, string $admin_username, string $company_name): void
     {
-        $subject = 'Bem-vindo ao Easy!Appointments';
-
-        $html = $this->load->view(
-            'emails/welcome_tenant_email',
-            [
-                'subject' => $subject,
-                'host' => $host,
-                'admin_username' => $admin_username,
-                'company_name' => $company_name,
-            ],
-            true,
-        );
-
-        $mailer = new PHPMailer(true);
-        $mailer->CharSet = 'UTF-8';
-        if (config('protocol') === 'smtp') {
-            $mailer->isSMTP();
-            $mailer->Host = config('smtp_host');
-            $mailer->SMTPAuth = (bool) config('smtp_auth');
-            $mailer->Username = config('smtp_user');
-            $mailer->Password = config('smtp_pass');
-            $mailer->SMTPSecure = config('smtp_crypto');
-            $mailer->Port = (int) config('smtp_port');
-        }
-
-        $fromName = config('from_name') ?: $company_name;
-        $domain = parse_url('https://' . $host, PHP_URL_HOST) ?: $host;
-        $fromAddress = config('from_address') ?: ('no-reply@' . preg_replace('/^www\./', '', $domain));
-
-        $mailer->setFrom($fromAddress, $fromName);
-        $mailer->addReplyTo($fromAddress);
-        $mailer->addAddress($to);
-        $mailer->Subject = $subject;
-        $mailer->isHTML();
-        $mailer->Body = $html;
-        $mailer->AltBody = strip_tags($html);
-
         try {
+            $subject = 'Bem-vindo ao Easy!Appointments';
+
+            $html = $this->load->view(
+                'emails/welcome_tenant_email',
+                [
+                    'subject' => $subject,
+                    'host' => $host,
+                    'admin_username' => $admin_username,
+                    'company_name' => $company_name,
+                ],
+                true,
+            );
+
+            $mailer = new PHPMailer(true);
+            $mailer->CharSet = 'UTF-8';
+            if (config('protocol') === 'smtp') {
+                $mailer->isSMTP();
+                $mailer->Host = config('smtp_host');
+                $mailer->SMTPAuth = (bool) config('smtp_auth');
+                $mailer->Username = config('smtp_user');
+                $mailer->Password = config('smtp_pass');
+                $mailer->SMTPSecure = config('smtp_crypto');
+                $mailer->Port = (int) config('smtp_port');
+            }
+
+            $fromName = config('from_name') ?: $company_name;
+            $domain = parse_url('https://' . $host, PHP_URL_HOST) ?: $host;
+            $computedFrom = 'no-reply@' . preg_replace('/^www\./', '', $domain);
+            $cfgFrom = (string) config('from_address');
+            // Avoid invalid default 'no-reply@localhost'
+            $fromAddress = (empty($cfgFrom) || str_contains($cfgFrom, 'localhost')) ? $computedFrom : $cfgFrom;
+            if (!filter_var($fromAddress, FILTER_VALIDATE_EMAIL)) {
+                $fromAddress = $computedFrom;
+            }
+
+            $mailer->setFrom($fromAddress, $fromName);
+            $mailer->addReplyTo($fromAddress);
+            if ($to) {
+                $mailer->addAddress($to);
+            }
+            $mailer->Subject = $subject;
+            $mailer->isHTML();
+            $mailer->Body = $html;
+            $mailer->AltBody = strip_tags($html);
+
             $mailer->send();
         } catch (MailException $e) {
             log_message('error', 'Welcome email failed: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            // Never block provisioning due to email issues
+            log_message('error', 'Welcome email unexpected error: ' . $e->getMessage());
         }
     }
 }
