@@ -164,8 +164,17 @@ class Signup extends EA_Controller
 
             // Spawn console install for that tenant with admin/company overrides
             $root = FCPATH;
-            $php = PHP_BINARY ?: 'php';
-            $cmd = $php . ' ' . escapeshellarg($root . 'index.php') . ' console install';
+            // Prefer explicit PHP CLI binary; fallback to common locations or 'php'.
+            $phpCandidates = [getenv('PHP_CLI') ?: null, '/usr/local/bin/php', '/usr/bin/php', 'php'];
+            $php = 'php';
+            foreach ($phpCandidates as $cand) {
+                if (!$cand) { continue; }
+                if ($cand === 'php') { $php = 'php'; break; }
+                if (@is_executable($cand)) { $php = $cand; break; }
+                // Still allow non-check paths; pick the first non-empty if nothing else works
+                if ($php === 'php') { $php = $cand; }
+            }
+            $cmd = escapeshellcmd($php) . ' ' . escapeshellarg($root . 'index.php') . ' console install';
 
             $descriptorSpec = [
                 0 => ['pipe', 'r'],
