@@ -114,9 +114,10 @@ class Signup extends EA_Controller
             $adminUser = getenv('PROVISION_DB_USERNAME') ?: (defined('Config::PROVISION_DB_USERNAME') ? Config::PROVISION_DB_USERNAME : Config::DB_USERNAME);
             $adminPass = getenv('PROVISION_DB_PASSWORD') ?: (defined('Config::PROVISION_DB_PASSWORD') ? Config::PROVISION_DB_PASSWORD : Config::DB_PASSWORD);
 
-            // Derive safe identifiers from host
+            // Derive safe identifiers primarily from slug (subdomain)
             $hostKey = strtolower(preg_replace('/:.+$/', '', $host));
-            $safe = preg_replace('/[^a-z0-9_]+/i', '_', $hostKey);
+            $slug = $subdomain ?: explode('.', $hostKey)[0];
+            $safe = preg_replace('/[^a-z0-9_]+/i', '_', $slug);
             $namePrefix = getenv('DB_NAME_PREFIX') ?: (defined('Config::DB_NAME_PREFIX') ? Config::DB_NAME_PREFIX : 'ea_');
             $userPrefix = getenv('DB_USER_PREFIX') ?: (defined('Config::DB_USER_PREFIX') ? Config::DB_USER_PREFIX : 'ea_');
             $dbName = substr($namePrefix . $safe, 0, 64);
@@ -152,19 +153,22 @@ class Signup extends EA_Controller
             }
             $mysqli->close();
 
-            // Update tenants registry with created credentials
-            $registry[$hostKey] = [
+            // Update tenants registry with created credentials (store by host and by slug)
+            $entry = [
                 'db_host' => $dbHost,
                 'db_name' => $dbName,
                 'db_user' => $dbUser,
                 'db_pass' => $dbPass,
                 'db_prefix' => 'ea_',
+                'slug' => $slug,
             ];
+            $registry[$hostKey] = $entry;
+            $registry[$slug] = $entry;
             tenant_registry_write($registry);
 
             // Verify that registry persisted (avoid running install on fallback DB)
             $check = tenant_registry();
-            if (!isset($check[$hostKey])) {
+            if (!isset($check[$hostKey]) && !isset($check[$slug])) {
                 throw new RuntimeException('Falha ao gravar o registro de tenants (permissões de escrita).');
             }
 
@@ -190,6 +194,7 @@ class Signup extends EA_Controller
 
             $env = array_merge($_ENV, [
                 'TENANT_HOST' => $host,
+                'TENANT_SLUG' => $slug,
                 'EA_ADMIN_EMAIL' => $admin_email,
                 'EA_ADMIN_USERNAME' => $admin_username,
                 'EA_ADMIN_PASSWORD' => $admin_password,
@@ -222,6 +227,7 @@ class Signup extends EA_Controller
             html_vars([
                 'page_title' => 'Signup Completed',
                 'host' => $host,
+                'slug' => $slug,
                 'admin_username' => $admin_username,
                 'admin_email' => $admin_email,
             ]);

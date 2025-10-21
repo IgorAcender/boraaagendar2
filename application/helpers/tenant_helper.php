@@ -17,6 +17,29 @@ if (!function_exists('tenant_current_host')) {
     }
 }
 
+if (!function_exists('tenant_current_slug')) {
+    function tenant_current_slug(): ?string
+    {
+        // Prefer explicit env for CLI
+        $slug = getenv('TENANT_SLUG');
+        if ($slug && is_string($slug)) {
+            return strtolower($slug);
+        }
+
+        // Query parameter
+        if (!empty($_GET['t'])) {
+            return strtolower(preg_replace('/[^a-z0-9-_.]+/i', '', (string) $_GET['t']));
+        }
+
+        // Cookie (set by controller)
+        if (!empty($_COOKIE['TENANT_SLUG'])) {
+            return strtolower(preg_replace('/[^a-z0-9-_.]+/i', '', (string) $_COOKIE['TENANT_SLUG']));
+        }
+
+        return null;
+    }
+}
+
 if (!function_exists('tenant_registry_primary_path')) {
     function tenant_registry_primary_path(): string
     {
@@ -82,14 +105,12 @@ if (!function_exists('tenant_db_config')) {
     function tenant_db_config(?string $host = null): ?array
     {
         $host = $host ?: tenant_current_host();
-        if (!$host) {
-            return null;
-        }
+        $slug = tenant_current_slug();
 
         $registry = tenant_registry();
 
         // Allow exact match and base-domain match (strip port).
-        $hostKey = strtolower(preg_replace('/:.+$/', '', $host));
+        $hostKey = $host ? strtolower(preg_replace('/:.+$/', '', $host)) : null;
 
         // Helper to normalize different registry shapes to DB config
         $toDbCfg = static function (array $entry): ?array {
@@ -128,9 +149,15 @@ if (!function_exists('tenant_db_config')) {
             ];
         };
 
-        // 1) Exact match
-        if (isset($registry[$hostKey]) && is_array($registry[$hostKey])) {
+        // 1) Exact host match
+        if ($hostKey && isset($registry[$hostKey]) && is_array($registry[$hostKey])) {
             $db = $toDbCfg($registry[$hostKey]);
+            if ($db) { return $db; }
+        }
+
+        // 1b) Slug match as primary key
+        if ($slug && isset($registry[$slug]) && is_array($registry[$slug])) {
+            $db = $toDbCfg($registry[$slug]);
             if ($db) { return $db; }
         }
 
@@ -142,6 +169,17 @@ if (!function_exists('tenant_db_config')) {
             foreach ($aliases as $alias) {
                 $aliasKey = strtolower(preg_replace('/:.+$/', '', (string)$alias));
                 if ($aliasKey === $hostKey) {
+                    $db = $toDbCfg($entry);
+                    if ($db) { return $db; }
+                }
+            }
+        }
+
+        // 2b) Search entries with ['slug' => '...'] metadata
+        if ($slug) {
+            foreach ($registry as $entry) {
+                if (!is_array($entry)) { continue; }
+                if (($entry['slug'] ?? null) && strtolower((string)$entry['slug']) === $slug) {
                     $db = $toDbCfg($entry);
                     if ($db) { return $db; }
                 }

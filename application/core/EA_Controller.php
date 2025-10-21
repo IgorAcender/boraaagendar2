@@ -81,6 +81,16 @@ class EA_Controller extends CI_Controller
 
         $this->load->library('accounts');
 
+        // Persist tenant slug from query param for subsequent requests.
+        if (!is_cli()) {
+            $slug = $_GET['t'] ?? null;
+            if ($slug) {
+                // Basic sanitize; cookie lasts 30 days
+                $slug = preg_replace('/[^a-z0-9-_.]+/i', '', (string)$slug);
+                setcookie('TENANT_SLUG', $slug, time() + 60 * 60 * 24 * 30, '/');
+            }
+        }
+
         $this->ensure_user_exists();
         $this->configure_timezone();
         $this->configure_language();
