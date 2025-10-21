@@ -56,6 +56,7 @@ class Signup extends EA_Controller
             $admin_email = trim((string) request('admin_email'));
             $admin_username = trim((string) request('admin_username'));
             $admin_password = (string) request('admin_password');
+            $admin_password_confirm = (string) request('admin_password_confirm');
 
             // If base domain is configured and subdomain provided, build host from it.
             if (!$host && $allowedBaseDomain && $subdomain) {
@@ -69,6 +70,10 @@ class Signup extends EA_Controller
 
             if (!$host || !$company_name || !$admin_email || !$admin_username || !$admin_password) {
                 throw new InvalidArgumentException('Missing required fields.');
+            }
+
+            if ($admin_password !== $admin_password_confirm) {
+                throw new InvalidArgumentException('As senhas não conferem.');
             }
 
             // reCAPTCHA validation (if configured)

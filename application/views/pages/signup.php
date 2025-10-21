@@ -22,11 +22,6 @@
                 </div>
                 <small class="text-muted">Seu endereço será: https://<strong>minhaempresa</strong>.<?= html_escape($baseDomain) ?></small>
             </div>
-            <details class="mb-3">
-                <summary>Usar um host completo (avançado)</summary>
-                <input type="text" name="host" class="form-control mt-2" placeholder="cliente.<?= html_escape($baseDomain) ?>">
-                <small class="text-muted">Preencha apenas se quiser informar o host inteiro manualmente.</small>
-            </details>
         <?php else: ?>
             <div class="mb-3">
                 <label class="form-label">Subdomínio (host)</label>
@@ -60,7 +55,23 @@
             <div class="col-md-6">
                 <div class="mb-3">
                     <label class="form-label">Senha do administrador</label>
-                    <input type="password" name="admin_password" class="form-control" minlength="8" required>
+                    <div class="input-group">
+                        <input type="password" id="admin-password" name="admin_password" class="form-control" minlength="8" required>
+                        <button class="btn btn-outline-secondary" type="button" id="toggle-password" aria-label="Mostrar/ocultar senha">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">Confirmar senha</label>
+                    <div class="input-group">
+                        <input type="password" id="admin-password-confirm" name="admin_password_confirm" class="form-control" minlength="8" required>
+                        <button class="btn btn-outline-secondary" type="button" id="toggle-password-confirm" aria-label="Mostrar/ocultar senha">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -85,3 +96,25 @@
 
 <?php end_section('content'); ?>
 
+<?php section('scripts'); ?>
+<script>
+    (function(){
+        function toggle(id, btn){
+            const input = document.getElementById(id);
+            if(!input) return;
+            input.type = input.type === 'password' ? 'text' : 'password';
+            if (btn && btn.firstElementChild) {
+                btn.firstElementChild.classList.toggle('fa-eye');
+                btn.firstElementChild.classList.toggle('fa-eye-slash');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function(){
+            const t1 = document.getElementById('toggle-password');
+            const t2 = document.getElementById('toggle-password-confirm');
+            if (t1) t1.addEventListener('click', function(){ toggle('admin-password', t1); });
+            if (t2) t2.addEventListener('click', function(){ toggle('admin-password-confirm', t2); });
+        });
+    })();
+</script>
+<?php end_section('scripts'); ?>
