@@ -164,6 +164,14 @@ $route['api/v1/availabilities']['get'] = 'api/v1/availabilities_api_v1/get';
 |
 */
 
+// Tenant selection by path (slug)
+$route['c/(:any)']['get'] = 'tenant/switch/$1';
+$route['cliente/(:any)']['get'] = 'tenant/switch/$1';
+
+// Global login (single entry point)
+$route['entrar']['get'] = 'global_login/index';
+$route['entrar']['post'] = 'global_login/auth';
+
 // Self-service signup and provisioning
 $route['signup']['get'] = 'signup/index';
 $route['signup/store']['post'] = 'signup/store';

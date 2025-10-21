@@ -28,6 +28,7 @@ class Signup extends EA_Controller
 
         $this->load->helper('tenant');
         $this->load->helper('url');
+        $this->load->helper('tenant_directory');
     }
 
     /**
@@ -219,6 +220,9 @@ class Signup extends EA_Controller
                 log_message('error', 'Provisioning failed for ' . $host . ' code=' . $exitCode . ' stderr=' . $errorOutput);
                 throw new RuntimeException('Provisioning failed, please contact support.');
             }
+
+            // Index admin email for global login routing
+            tenant_directory_set($admin_email, $slug);
 
             // Send welcome email (best-effort)
             $this->send_welcome_email($admin_email, $host, $admin_username, $company_name);
