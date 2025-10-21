@@ -47,10 +47,11 @@
             O banco de dados e o usuÃ¡rio do cliente serÃ£o criados automaticamente com base no subdomÃ­nio informado.
         </div>
 
-        <?php if (Config::RECAPTCHA_SITE_KEY): ?>
+        <?php $recaptchaSiteKey = getenv('RECAPTCHA_SITE_KEY') ?: (defined('Config::RECAPTCHA_SITE_KEY') ? Config::RECAPTCHA_SITE_KEY : ''); ?>
+        <?php if (!empty($recaptchaSiteKey)): ?>
             <div class="mb-3">
                 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-                <div class="g-recaptcha" data-sitekey="<?= html_escape(Config::RECAPTCHA_SITE_KEY) ?>"></div>
+                <div class="g-recaptcha" data-sitekey="<?= html_escape($recaptchaSiteKey) ?>"></div>
             </div>
         <?php endif; ?>
 

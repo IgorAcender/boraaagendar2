@@ -60,6 +60,12 @@ During normal web requests, the app resolves the current tenant by reading `$_SE
 
 If a host is not registered, the app falls back to the single-tenant configuration defined in `config.php`.
 
+### Local Testing
+
+- With Docker Compose, use subdomains of `localhost` (e.g., `cliente.localhost`) which resolve to `127.0.0.1`.
+- The bundled Nginx is the default server and will accept any Host header.
+- Mailpit is available on `http://localhost:8025` to see outbound emails.
+
 ## Migrate All Tenants
 
 Run migrations for all registered tenants sequentially:

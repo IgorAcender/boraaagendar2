@@ -59,7 +59,9 @@ class Signup extends EA_Controller
             }
 
             // reCAPTCHA validation (if configured)
-            if (!empty(Config::RECAPTCHA_SECRET) && !empty(Config::RECAPTCHA_SITE_KEY)) {
+            $rcSiteKey = getenv('RECAPTCHA_SITE_KEY') ?: (defined('Config::RECAPTCHA_SITE_KEY') ? Config::RECAPTCHA_SITE_KEY : '');
+            $rcSecret  = getenv('RECAPTCHA_SECRET') ?: (defined('Config::RECAPTCHA_SECRET') ? Config::RECAPTCHA_SECRET : '');
+            if (!empty($rcSecret) && !empty($rcSiteKey)) {
                 $captcha = (string) request('g-recaptcha-response');
                 if (!$captcha) {
                     throw new InvalidArgumentException('Valide o reCAPTCHA para continuar.');
@@ -76,10 +78,11 @@ class Signup extends EA_Controller
                 throw new InvalidArgumentException('Invalid host. Use a full domain like cliente.seuapp.com');
             }
 
-            if (defined('Config::ALLOWED_SIGNUP_BASE_DOMAIN') && Config::ALLOWED_SIGNUP_BASE_DOMAIN) {
-                $base = '.' . ltrim(Config::ALLOWED_SIGNUP_BASE_DOMAIN, '.');
+            $allowedBaseDomain = getenv('ALLOWED_SIGNUP_BASE_DOMAIN') ?: (defined('Config::ALLOWED_SIGNUP_BASE_DOMAIN') ? Config::ALLOWED_SIGNUP_BASE_DOMAIN : '');
+            if ($allowedBaseDomain) {
+                $base = '.' . ltrim($allowedBaseDomain, '.');
                 if (!str_ends_with($host, $base)) {
-                    throw new InvalidArgumentException('Host not allowed. Must be a subdomain of ' . Config::ALLOWED_SIGNUP_BASE_DOMAIN);
+                    throw new InvalidArgumentException('Host not allowed. Must be a subdomain of ' . $allowedBaseDomain);
                 }
             }
 
@@ -90,15 +93,15 @@ class Signup extends EA_Controller
             }
 
             // Auto-create database & user on the configured DB server
-            $dbHost = defined('Config::PROVISION_DB_HOST') ? Config::PROVISION_DB_HOST : Config::DB_HOST;
-            $adminUser = defined('Config::PROVISION_DB_USERNAME') ? Config::PROVISION_DB_USERNAME : Config::DB_USERNAME;
-            $adminPass = defined('Config::PROVISION_DB_PASSWORD') ? Config::PROVISION_DB_PASSWORD : Config::DB_PASSWORD;
+            $dbHost   = getenv('PROVISION_DB_HOST') ?: (defined('Config::PROVISION_DB_HOST') ? Config::PROVISION_DB_HOST : Config::DB_HOST);
+            $adminUser = getenv('PROVISION_DB_USERNAME') ?: (defined('Config::PROVISION_DB_USERNAME') ? Config::PROVISION_DB_USERNAME : Config::DB_USERNAME);
+            $adminPass = getenv('PROVISION_DB_PASSWORD') ?: (defined('Config::PROVISION_DB_PASSWORD') ? Config::PROVISION_DB_PASSWORD : Config::DB_PASSWORD);
 
             // Derive safe identifiers from host
             $hostKey = strtolower(preg_replace('/:.+$/', '', $host));
             $safe = preg_replace('/[^a-z0-9_]+/i', '_', $hostKey);
-            $namePrefix = defined('Config::DB_NAME_PREFIX') ? Config::DB_NAME_PREFIX : 'ea_';
-            $userPrefix = defined('Config::DB_USER_PREFIX') ? Config::DB_USER_PREFIX : 'ea_';
+            $namePrefix = getenv('DB_NAME_PREFIX') ?: (defined('Config::DB_NAME_PREFIX') ? Config::DB_NAME_PREFIX : 'ea_');
+            $userPrefix = getenv('DB_USER_PREFIX') ?: (defined('Config::DB_USER_PREFIX') ? Config::DB_USER_PREFIX : 'ea_');
             $dbName = substr($namePrefix . $safe, 0, 64);
             $dbUser = substr($userPrefix . $safe, 0, 32);
             $dbPass = bin2hex(random_bytes(12)); // 24 chars
@@ -291,4 +294,3 @@ class Signup extends EA_Controller
         }
     }
 }
-

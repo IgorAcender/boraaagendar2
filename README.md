@@ -1,4 +1,4 @@
-<h1 align="center">
+﻿<h1 align="center">
     <br>
     <a href="https://easyappointments.org">
         <img src="https://raw.githubusercontent.com/alextselegidis/easyappointments/develop/logo.png" alt="Easy!Appointments" width="150">
@@ -24,10 +24,10 @@
 </p>
 
 <p align="center">
-  <a href="#about">About</a> •
-  <a href="#features">Features</a> •
-  <a href="#setup">Setup</a> •
-  <a href="#installation">Installation</a> •
+  <a href="#about">About</a> â€¢
+  <a href="#features">Features</a> â€¢
+  <a href="#setup">Setup</a> â€¢
+  <a href="#installation">Installation</a> â€¢
   <a href="#license">License</a>
 </p>
 
@@ -106,6 +106,20 @@ GitHub [alextselegidis](https://github.com/alextselegidis) &nbsp;&middot;&nbsp;
 Twitter [@alextselegidis](https://twitter.com/AlexTselegidis)
 
 ###### More Projects On Github
-###### ⇾ [Plainpad &middot; Self Hosted Note Taking App](https://github.com/alextselegidis/plainpad)
-###### ⇾ [Questionful &middot; Web Questionnaires Made Easy](https://github.com/alextselegidis/questionful)
-###### ⇾ [Integravy &middot; Service Orchestration At Your Fingertips](https://github.com/alextselegidis/integravy)
+###### â‡¾ [Plainpad &middot; Self Hosted Note Taking App](https://github.com/alextselegidis/plainpad)
+###### â‡¾ [Questionful &middot; Web Questionnaires Made Easy](https://github.com/alextselegidis/questionful)
+###### â‡¾ [Integravy &middot; Service Orchestration At Your Fingertips](https://github.com/alextselegidis/integravy)
+
+## Production Override
+
+To run with production SMTP and environment:
+
+`ash
+cp .env.example .env
+# edit .env with your SMTP credentials
+
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+` 
+
+By default development uses Mailpit (http://localhost:8025) for email.
+
