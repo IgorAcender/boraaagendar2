@@ -95,7 +95,9 @@ window.App.Layouts.Backend = (function () {
 
         tippy('[data-tippy-content]');
 
-        App.Utils.Lang.enableLanguageSelection($selectLanguage);
+        if ($selectLanguage.length && Array.isArray(vars('available_languages')) && vars('available_languages').length > 1) {
+            App.Utils.Lang.enableLanguageSelection($selectLanguage);
+        }
     }
 
     document.addEventListener('DOMContentLoaded', initialize);

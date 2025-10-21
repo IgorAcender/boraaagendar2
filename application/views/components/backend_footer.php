@@ -29,12 +29,7 @@
         </a>
     </div>
 
-    <div class="mb-3 me-lg-5 mb-lg-0">
-        <span id="select-language" class="badge bg-dark">
-            <i class="fas fa-language me-2"></i>
-        	<?= ucfirst(config('language')) ?>
-        </span>
-    </div>
+    <?php /* Idioma fixo: remover seletor de idioma */ ?>
 
     <div class="mb-3 me-lg-5 mb-lg-0">
         <a href="<?= site_url('appointments') ?>">

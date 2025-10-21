@@ -110,16 +110,11 @@ class EA_Controller extends CI_Controller
      */
     private function configure_language()
     {
-        $session_language = session('language');
-
-        if ($session_language) {
-            $language_codes = config('language_codes');
-
-            config([
-                'language' => $session_language,
-                'language_code' => array_search($session_language, $language_codes) ?: 'en',
-            ]);
-        }
+        // App exclusivo BR: força idioma fixo.
+        config([
+            'language' => 'portuguese-br',
+            'language_code' => 'pt',
+        ]);
 
         $this->lang->load('translations');
     }

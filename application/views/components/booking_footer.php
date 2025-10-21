@@ -14,11 +14,6 @@
         </span>
 
         <span class="footer-options">
-            <span id="select-language" class="badge bg-secondary">
-                <i class="fas fa-language me-2"></i>
-                <?= ucfirst(config('language')) ?>
-            </span>
-    
             <?php if ($display_login_button): ?>
                 <a class="backend-link badge bg-primary text-decoration-none px-2"
                    href="<?= session('user_id') ? site_url('calendar') : site_url('login') ?>">
