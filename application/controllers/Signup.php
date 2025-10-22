@@ -9,7 +9,6 @@ class Signup extends EA_Controller
     public function __construct()
     {
         parent::__construct();
-
         $this->load->helper('tenant');
         $this->load->helper('url');
         $this->load->helper('tenant_directory');
@@ -25,7 +24,8 @@ class Signup extends EA_Controller
     public function store(): void
     {
         try {
-            $allowedBaseDomain = getenv('ALLOWED_SIGNUP_BASE_DOMAIN') ?: (defined('Config::ALLOWED_SIGNUP_BASE_DOMAIN') ? Config::ALLOWED_SIGNUP_BASE_DOMAIN : '');
+            $allowedBaseDomain = getenv('ALLOWED_SIGNUP_BASE_DOMAIN')
+                ?: (defined('Config::ALLOWED_SIGNUP_BASE_DOMAIN') ? Config::ALLOWED_SIGNUP_BASE_DOMAIN : '');
 
             $subdomain = trim((string) request('subdomain', ''));
             $hostInput = trim((string) request('host'));
@@ -40,6 +40,7 @@ class Signup extends EA_Controller
                 if (!preg_match('/^[a-z0-9]([a-z0-9-]{1,30}[a-z0-9])?$/i', $subdomain)) {
                     throw new InvalidArgumentException('Invalid subdomain. Use letters, numbers or hyphen.');
                 }
+
                 $hostInput = $subdomain . '.' . ltrim($allowedBaseDomain, '.');
             }
 
@@ -53,13 +54,13 @@ class Signup extends EA_Controller
 
             $hostInput = strtolower($hostInput);
             if (!preg_match('/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/', $hostInput)) {
-                throw new InvalidArgumentException('Invalid host.');
+                throw new InvalidArgumentException('Invalid host/domain.');
             }
 
             if ($allowedBaseDomain) {
                 $base = '.' . ltrim($allowedBaseDomain, '.');
                 if (!str_ends_with($hostInput, $base)) {
-                    throw new InvalidArgumentException('Host not allowed for this signup.');
+                    throw new InvalidArgumentException('Host not allowed.');
                 }
             }
 
@@ -78,17 +79,14 @@ class Signup extends EA_Controller
                 }
             }
 
-            $metaEnabled = $this->tenants_registry->is_enabled();
-            if ($metaEnabled) {
-                $this->tenants_registry->ensure_schema();
-                if ($this->tenants_registry->get_by_slug($slug) || $this->tenants_registry->get_by_host($hostInput)) {
-                    throw new InvalidArgumentException('This client is already registered.');
-                }
-            } else {
-                $registry = tenant_registry();
-                if (isset($registry[$hostInput]) || isset($registry[$slug])) {
-                    throw new InvalidArgumentException('This client is already registered.');
-                }
+            if (!$this->tenants_registry->is_enabled()) {
+                throw new RuntimeException('Tenant meta database is not configured.');
+            }
+
+            $this->tenants_registry->ensure_schema();
+
+            if ($this->tenants_registry->get_by_slug($slug) || $this->tenants_registry->get_by_host($hostInput)) {
+                throw new InvalidArgumentException('This client is already registered.');
             }
 
             $dbHostProvision = getenv('PROVISION_DB_HOST') ?: (defined('Config::PROVISION_DB_HOST') ? Config::PROVISION_DB_HOST : Config::DB_HOST);
@@ -97,7 +95,7 @@ class Signup extends EA_Controller
 
             $mysqli = @new mysqli($dbHostProvision, $dbAdminUser, $dbAdminPass);
             if ($mysqli->connect_errno) {
-                throw new RuntimeException('Could not connect to MySQL provisioning server: ' . $mysqli->connect_error);
+                throw new RuntimeException('Could not connect to provisioning MySQL: ' . $mysqli->connect_error);
             }
 
             $safeSlug = preg_replace('/[^a-z0-9_]+/i', '_', $slug);
@@ -124,12 +122,11 @@ class Signup extends EA_Controller
                     }
                     $err = $mysqli->error . ' (errno ' . $mysqli->errno . ')';
                     $mysqli->close();
-                    throw new RuntimeException('Error provisioning database: ' . $err);
+                    throw new RuntimeException('Database provisioning error: ' . $err);
                 }
             }
             $mysqli->close();
 
-            $hostKey = strtolower($hostInput);
             $entry = [
                 'db_host' => $dbHostProvision,
                 'db_name' => $dbName,
@@ -137,20 +134,14 @@ class Signup extends EA_Controller
                 'db_pass' => $dbPass,
                 'db_prefix' => 'ea_',
                 'slug' => $slug,
+                'host' => $hostInput,
             ];
 
-            if ($metaEnabled) {
-                $dbEntry = $entry;
-                $dbEntry['host'] = $hostKey;
-                $this->tenants_registry->upsert($dbEntry);
-            } else {
-                $registry[$hostKey] = $entry;
-                $registry[$slug] = $entry;
-                tenant_registry_write($registry);
-                $check = tenant_registry();
-                if (!isset($check[$hostKey]) && !isset($check[$slug])) {
-                    throw new RuntimeException('Failed to write tenant registry file.');
-                }
+            $this->tenants_registry->upsert($entry);
+
+            $row = $this->tenants_registry->get_by_slug($slug) ?: $this->tenants_registry->get_by_host($hostInput);
+            if (!$row) {
+                throw new RuntimeException('Failed to persist tenant meta information.');
             }
 
             $phpCandidates = [getenv('PHP_CLI') ?: null, PHP_BINARY ?: null, '/usr/local/bin/php', '/usr/bin/php', 'php'];
@@ -161,21 +152,25 @@ class Signup extends EA_Controller
                 if (@is_executable($candidate) && !str_contains($candidate, 'php-fpm')) { $php = $candidate; break; }
                 if ($php === 'php') { $php = $candidate; }
             }
+
             $cmd = escapeshellcmd($php) . ' ' . escapeshellarg(FCPATH . 'index.php') . ' console install';
+            log_message('debug', 'Provision command: ' . $cmd);
+
             $descriptor = [
                 0 => ['pipe', 'r'],
                 1 => ['pipe', 'w'],
                 2 => ['pipe', 'w'],
             ];
+
             $env = array_merge($_ENV, [
-                'TENANT_HOST' => $hostKey,
+                'TENANT_HOST' => $hostInput,
                 'TENANT_SLUG' => $slug,
                 'EA_ADMIN_EMAIL' => $adminEmail,
                 'EA_ADMIN_USERNAME' => $adminUsername,
                 'EA_ADMIN_PASSWORD' => $adminPassword,
                 'EA_COMPANY_NAME' => $companyName,
                 'EA_COMPANY_EMAIL' => $adminEmail,
-                'EA_COMPANY_LINK' => 'https://' . $hostKey,
+                'EA_COMPANY_LINK' => 'https://' . $hostInput,
             ]);
 
             $process = proc_open($cmd, $descriptor, $pipes, FCPATH, $env);
@@ -190,21 +185,25 @@ class Signup extends EA_Controller
             fclose($pipes[2]);
             $exitCode = proc_close($process);
 
+            log_message('debug', 'Provision stdout: ' . trim($output));
+            log_message('debug', 'Provision stderr: ' . trim($errorOutput));
+
             if ($exitCode !== 0) {
-                log_message('error', 'Provisioning failed for ' . $hostKey . ' code=' . $exitCode . ' stderr=' . $errorOutput);
+                log_message('error', 'Provisioning failed for ' . $hostInput . ' code=' . $exitCode . ' stderr=' . $errorOutput);
                 throw new RuntimeException('Provisioning failed, please contact support.');
             }
 
             tenant_directory_set($adminEmail, $slug);
-            $this->send_welcome_email($adminEmail, $hostKey, $adminUsername, $companyName);
+            $this->send_welcome_email($adminEmail, $hostInput, $adminUsername, $companyName);
 
             html_vars([
                 'page_title' => 'Signup Completed',
-                'host' => $hostKey,
+                'host' => $hostInput,
                 'slug' => $slug,
                 'admin_username' => $adminUsername,
                 'admin_email' => $adminEmail,
             ]);
+
             $this->load->view('pages/signup_success');
         } catch (Throwable $e) {
             json_exception($e);
@@ -262,7 +261,6 @@ class Signup extends EA_Controller
     {
         try {
             $subject = 'Bem-vindo ao Easy!Appointments';
-
             $html = $this->load->view(
                 'emails/welcome_tenant_email',
                 [
@@ -313,4 +311,3 @@ class Signup extends EA_Controller
         }
     }
 }
-
