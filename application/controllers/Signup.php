@@ -171,6 +171,11 @@ class Signup extends EA_Controller
                 'EA_COMPANY_NAME' => $companyName,
                 'EA_COMPANY_EMAIL' => $adminEmail,
                 'EA_COMPANY_LINK' => 'https://' . $hostInput,
+                // Ensure child CLI process sees meta‑DB connection
+                'META_DB_HOST' => getenv('META_DB_HOST') ?: '',
+                'META_DB_NAME' => getenv('META_DB_NAME') ?: '',
+                'META_DB_USERNAME' => getenv('META_DB_USERNAME') ?: '',
+                'META_DB_PASSWORD' => getenv('META_DB_PASSWORD') ?: '',
             ]);
 
             $process = proc_open($cmd, $descriptor, $pipes, FCPATH, $env);
