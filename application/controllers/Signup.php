@@ -317,3 +317,4 @@ class Signup extends EA_Controller
         }
     }
 }
+
