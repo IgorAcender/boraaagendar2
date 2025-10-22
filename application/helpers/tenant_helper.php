@@ -149,6 +149,22 @@ if (!function_exists('tenant_db_config')) {
             ];
         };
 
+        // Meta-DB registry (if enabled)
+        if (getenv('META_DB_HOST') && getenv('META_DB_NAME') && getenv('META_DB_USERNAME')) {
+            $CI = &get_instance();
+            $CI->load->library('tenants_registry');
+            /** @var Tenants_registry $tr */
+            $tr = $CI->tenants_registry;
+            if ($hostKey) {
+                $row = $tr->get_by_host($hostKey);
+                if ($row) { return $toDbCfg($row); }
+            }
+            if ($slug) {
+                $row = $tr->get_by_slug($slug);
+                if ($row) { return $toDbCfg($row); }
+            }
+        }
+
         // 1) Exact host match
         if ($hostKey && isset($registry[$hostKey]) && is_array($registry[$hostKey])) {
             $db = $toDbCfg($registry[$hostKey]);

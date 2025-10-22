@@ -1,4 +1,4 @@
-<?php defined('BASEPATH') or exit('No direct script access allowed');
+﻿<?php defined('BASEPATH') or exit('No direct script access allowed');
 
 /* ----------------------------------------------------------------------------
  * Easy!Appointments - Online Appointment Scheduler
@@ -63,7 +63,7 @@ class Signup extends EA_Controller
             if (!$host && $allowedBaseDomain && $subdomain) {
                 // Validate subdomain (basic)
                 if (!preg_match('/^[a-z0-9]([a-z0-9-]{1,30}[a-z0-9])?$/i', $subdomain)) {
-                    throw new InvalidArgumentException('Subdomínio inválido. Use letras, números e hífen.');
+                    throw new InvalidArgumentException('SubdomÃ­nio invÃ¡lido. Use letras, nÃºmeros e hÃ­fen.');
                 }
 
                 $host = strtolower($subdomain) . '.' . ltrim($allowedBaseDomain, '.');
@@ -74,7 +74,7 @@ class Signup extends EA_Controller
             }
 
             if ($admin_password !== $admin_password_confirm) {
-                throw new InvalidArgumentException('As senhas não conferem.');
+                throw new InvalidArgumentException('As senhas nÃ£o conferem.');
             }
 
             // reCAPTCHA validation (if configured)
@@ -87,7 +87,7 @@ class Signup extends EA_Controller
                 }
 
                 if (!$this->verify_recaptcha($captcha)) {
-                    throw new InvalidArgumentException('Falha na validação do reCAPTCHA.');
+                    throw new InvalidArgumentException('Falha na validaÃ§Ã£o do reCAPTCHA.');
                 }
             }
 
@@ -170,7 +170,7 @@ class Signup extends EA_Controller
             // Verify that registry persisted (avoid running install on fallback DB)
             $check = tenant_registry();
             if (!isset($check[$hostKey]) && !isset($check[$slug])) {
-                throw new RuntimeException('Falha ao gravar o registro de tenants (permissões de escrita).');
+                throw new RuntimeException('Falha ao gravar o registro de tenants (permissÃµes de escrita).');
             }
 
             // Spawn console install for that tenant with admin/company overrides
@@ -274,7 +274,7 @@ class Signup extends EA_Controller
             $context = stream_context_create([
                 'http' => [
                     'method' => 'POST',
-                    'header' => "Content-type: application/x-www-form-urlencoded\r\n",
+                    'header' => "Content-type: application/x-www-form-urlencoded`r`n",
                     'content' => $post,
                     'timeout' => 10,
                 ],
@@ -341,9 +341,11 @@ class Signup extends EA_Controller
             $mailer->send();
         } catch (MailException $e) {
             log_message('error', 'Welcome email failed: ' . $e->getMessage());
-        } catch (\Throwable $e) {
+        } catch (    hrowable $e) {
             // Never block provisioning due to email issues
             log_message('error', 'Welcome email unexpected error: ' . $e->getMessage());
         }
     }
 }
+
+
