@@ -1,4 +1,4 @@
-﻿<?php defined('BASEPATH') or exit('No direct script access allowed');
+<?php defined('BASEPATH') or exit('No direct script access allowed');
 
 use PHPMailer\PHPMailer\Exception as MailException;
 use PHPMailer\PHPMailer\PHPMailer;
@@ -38,70 +38,66 @@ class Signup extends EA_Controller
             if (!$hostInput && $allowedBaseDomain) {
                 $subdomain = strtolower($subdomain);
                 if (!preg_match('/^[a-z0-9]([a-z0-9-]{1,30}[a-z0-9])?$/i', $subdomain)) {
-                    throw new InvalidArgumentException('Subdomínio inválido. Use letras, números e hífen.');
+                    throw new InvalidArgumentException('Invalid subdomain. Use letters, numbers or hyphen.');
                 }
                 $hostInput = $subdomain . '.' . ltrim($allowedBaseDomain, '.');
             }
 
             if (!$hostInput || !$companyName || !$adminEmail || !$adminUsername || !$adminPassword) {
-                throw new InvalidArgumentException('Todos os campos são obrigatórios.');
+                throw new InvalidArgumentException('All fields are required.');
             }
 
             if ($adminPassword !== $adminPasswordConfirm) {
-                throw new InvalidArgumentException('As senhas não conferem.');
+                throw new InvalidArgumentException('Passwords do not match.');
             }
 
             $hostInput = strtolower($hostInput);
             if (!preg_match('/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/', $hostInput)) {
-                throw new InvalidArgumentException('Host inválido. Informe um domínio completo.');
+                throw new InvalidArgumentException('Invalid host.');
             }
 
             if ($allowedBaseDomain) {
                 $base = '.' . ltrim($allowedBaseDomain, '.');
                 if (!str_ends_with($hostInput, $base)) {
-                    throw new InvalidArgumentException('Host não permitido. Utilize um subdomínio de ' . $allowedBaseDomain);
+                    throw new InvalidArgumentException('Host not allowed for this signup.');
                 }
             }
 
             $slug = $subdomain ?: explode('.', $hostInput)[0];
             $slug = strtolower(preg_replace('/[^a-z0-9-]+/i', '', $slug));
             if (!$slug) {
-                throw new InvalidArgumentException('Não foi possível gerar o identificador do cliente.');
+                throw new InvalidArgumentException('Could not determine client slug.');
             }
 
-            // reCAPTCHA (se configurado)
+            $rcSecret = getenv('RECAPTCHA_SECRET') ?: (defined('Config::RECAPTCHA_SECRET') ? Config::RECAPTCHA_SECRET : '');
             $rcSiteKey = getenv('RECAPTCHA_SITE_KEY') ?: (defined('Config::RECAPTCHA_SITE_KEY') ? Config::RECAPTCHA_SITE_KEY : '');
-            $rcSecret  = getenv('RECAPTCHA_SECRET') ?: (defined('Config::RECAPTCHA_SECRET') ? Config::RECAPTCHA_SECRET : '');
             if ($rcSecret && $rcSiteKey) {
                 $captcha = (string) request('g-recaptcha-response');
                 if (!$captcha || !$this->verify_recaptcha($captcha)) {
-                    throw new InvalidArgumentException('Falha na validação do reCAPTCHA.');
+                    throw new InvalidArgumentException('reCAPTCHA validation failed.');
                 }
             }
 
-            // Verificação de duplicidade (META DB)
             $metaEnabled = $this->tenants_registry->is_enabled();
             if ($metaEnabled) {
                 $this->tenants_registry->ensure_schema();
                 if ($this->tenants_registry->get_by_slug($slug) || $this->tenants_registry->get_by_host($hostInput)) {
-                    throw new InvalidArgumentException('Este cliente já foi registrado.');
+                    throw new InvalidArgumentException('This client is already registered.');
+                }
+            } else {
+                $registry = tenant_registry();
+                if (isset($registry[$hostInput]) || isset($registry[$slug])) {
+                    throw new InvalidArgumentException('This client is already registered.');
                 }
             }
 
-            // Verificação de duplicidade (arquivo legacy)
-            $registry = tenant_registry();
-            if (isset($registry[$hostInput]) || isset($registry[$slug])) {
-                throw new InvalidArgumentException('Este cliente já foi registrado.');
-            }
-
-            // Provisionar banco e usuário
             $dbHostProvision = getenv('PROVISION_DB_HOST') ?: (defined('Config::PROVISION_DB_HOST') ? Config::PROVISION_DB_HOST : Config::DB_HOST);
             $dbAdminUser = getenv('PROVISION_DB_USERNAME') ?: (defined('Config::PROVISION_DB_USERNAME') ? Config::PROVISION_DB_USERNAME : Config::DB_USERNAME);
             $dbAdminPass = getenv('PROVISION_DB_PASSWORD') ?: (defined('Config::PROVISION_DB_PASSWORD') ? Config::PROVISION_DB_PASSWORD : Config::DB_PASSWORD);
 
             $mysqli = @new mysqli($dbHostProvision, $dbAdminUser, $dbAdminPass);
             if ($mysqli->connect_errno) {
-                throw new RuntimeException('Não foi possível conectar ao MySQL de provisionamento: ' . $mysqli->connect_error);
+                throw new RuntimeException('Could not connect to MySQL provisioning server: ' . $mysqli->connect_error);
             }
 
             $safeSlug = preg_replace('/[^a-z0-9_]+/i', '_', $slug);
@@ -128,7 +124,7 @@ class Signup extends EA_Controller
                     }
                     $err = $mysqli->error . ' (errno ' . $mysqli->errno . ')';
                     $mysqli->close();
-                    throw new RuntimeException('Erro ao provisionar banco: ' . $err);
+                    throw new RuntimeException('Error provisioning database: ' . $err);
                 }
             }
             $mysqli->close();
@@ -143,32 +139,28 @@ class Signup extends EA_Controller
                 'slug' => $slug,
             ];
 
-            $registry[$hostKey] = $entry;
-            $registry[$slug] = $entry;
-            tenant_registry_write($registry);
-
             if ($metaEnabled) {
                 $dbEntry = $entry;
                 $dbEntry['host'] = $hostKey;
                 $this->tenants_registry->upsert($dbEntry);
-                $row = $this->tenants_registry->get_by_slug($slug) ?: $this->tenants_registry->get_by_host($hostKey);
-                if (!$row) {
-                    throw new RuntimeException('Falha ao gravar o registro de tenants (meta DB).');
-                }
             } else {
-                $ok = false;
-                for ($i = 0; $i < 10; $i++) {
-                    $check = tenant_registry();
-                    if (isset($check[$hostKey]) || isset($check[$slug])) { $ok = true; break; }
-                    usleep(200000);
-                }
-                if (!$ok) {
-                    throw new RuntimeException('Falha ao gravar o registro de tenants (permissões de escrita).');
+                $registry[$hostKey] = $entry;
+                $registry[$slug] = $entry;
+                tenant_registry_write($registry);
+                $check = tenant_registry();
+                if (!isset($check[$hostKey]) && !isset($check[$slug])) {
+                    throw new RuntimeException('Failed to write tenant registry file.');
                 }
             }
 
-            // Executa migrations/seed do tenant
-            $php = PHP_BINARY ?: 'php';
+            $phpCandidates = [getenv('PHP_CLI') ?: null, PHP_BINARY ?: null, '/usr/local/bin/php', '/usr/bin/php', 'php'];
+            $php = 'php';
+            foreach ($phpCandidates as $candidate) {
+                if (!$candidate) { continue; }
+                if ($candidate === 'php') { $php = 'php'; break; }
+                if (@is_executable($candidate) && !str_contains($candidate, 'php-fpm')) { $php = $candidate; break; }
+                if ($php === 'php') { $php = $candidate; }
+            }
             $cmd = escapeshellcmd($php) . ' ' . escapeshellarg(FCPATH . 'index.php') . ' console install';
             $descriptor = [
                 0 => ['pipe', 'r'],
@@ -188,13 +180,16 @@ class Signup extends EA_Controller
 
             $process = proc_open($cmd, $descriptor, $pipes, FCPATH, $env);
             if (!is_resource($process)) {
-                throw new RuntimeException('Não foi possível iniciar o processo de instalação.');
+                throw new RuntimeException('Could not start provisioning process.');
             }
+
             fclose($pipes[0]);
             $output = stream_get_contents($pipes[1]);
             $errorOutput = stream_get_contents($pipes[2]);
-            fclose($pipes[1]); fclose($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
             $exitCode = proc_close($process);
+
             if ($exitCode !== 0) {
                 log_message('error', 'Provisioning failed for ' . $hostKey . ' code=' . $exitCode . ' stderr=' . $errorOutput);
                 throw new RuntimeException('Provisioning failed, please contact support.');
@@ -267,6 +262,7 @@ class Signup extends EA_Controller
     {
         try {
             $subject = 'Bem-vindo ao Easy!Appointments';
+
             $html = $this->load->view(
                 'emails/welcome_tenant_email',
                 [

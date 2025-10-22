@@ -1,8 +1,8 @@
-﻿<?php defined('BASEPATH') or exit('No direct script access allowed');
+<?php defined('BASEPATH') or exit('No direct script access allowed');
 
 class Tenants_registry
 {
-    protected EA_Controller|CI_Controller $CI;
+    protected $CI;
 
     public function __construct()
     {
