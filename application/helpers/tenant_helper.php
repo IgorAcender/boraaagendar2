@@ -1,5 +1,5 @@
-<?php
-// Minimal, framework-independent helper for tenant resolution and DB config.
+﻿<?php
+// Tenant helpers for host/slug resolution and DB configuration.
 
 if (!function_exists('tenant_current_host')) {
     function tenant_current_host(): ?string
@@ -20,18 +20,15 @@ if (!function_exists('tenant_current_host')) {
 if (!function_exists('tenant_current_slug')) {
     function tenant_current_slug(): ?string
     {
-        // Prefer explicit env for CLI
         $slug = getenv('TENANT_SLUG');
         if ($slug && is_string($slug)) {
             return strtolower($slug);
         }
 
-        // Query parameter
         if (!empty($_GET['t'])) {
             return strtolower(preg_replace('/[^a-z0-9-_.]+/i', '', (string) $_GET['t']));
         }
 
-        // Cookie (set by controller)
         if (!empty($_COOKIE['TENANT_SLUG'])) {
             return strtolower(preg_replace('/[^a-z0-9-_.]+/i', '', (string) $_COOKIE['TENANT_SLUG']));
         }
@@ -59,13 +56,6 @@ if (!function_exists('tenant_registry_fallback_path')) {
 if (!function_exists('tenant_registry_path')) {
     function tenant_registry_path(): string
     {
-        $primary = tenant_registry_primary_path();
-        // If primary exists and is writable (or parent dir is writable), use it, else fallback under storage/
-        $primaryDir = dirname($primary);
-        if ((file_exists($primary) && is_writable($primary)) || (!file_exists($primary) && is_dir($primaryDir) && is_writable($primaryDir))) {
-            return $primary;
-        }
-
         return tenant_registry_fallback_path();
     }
 }
@@ -76,28 +66,18 @@ if (!function_exists('tenant_registry')) {
         $primary = tenant_registry_primary_path();
         $fallback = tenant_registry_fallback_path();
 
-        $dataPrimary = null;
-        $dataFallback = null;
-
-        if (file_exists($primary)) {
-            $dataPrimary = include $primary;
-        }
-        if (file_exists($fallback)) {
-            $dataFallback = include $fallback;
+        if (function_exists('opcache_invalidate')) {
+            @opcache_invalidate($primary, true);
+            @opcache_invalidate($fallback, true);
         }
 
-        // Prefer the non-empty registry; fallback to any array
-        if (is_array($dataFallback) && (!is_array($dataPrimary) || empty($dataPrimary))) {
-            return $dataFallback;
-        }
-        if (is_array($dataPrimary)) {
-            return $dataPrimary;
-        }
-        if (is_array($dataFallback)) {
-            return $dataFallback;
-        }
+        $dataPrimary = file_exists($primary) ? include $primary : [];
+        $dataFallback = file_exists($fallback) ? include $fallback : [];
 
-        return [];
+        $dataPrimary = is_array($dataPrimary) ? $dataPrimary : [];
+        $dataFallback = is_array($dataFallback) ? $dataFallback : [];
+
+        return array_merge($dataPrimary, $dataFallback);
     }
 }
 
@@ -108,14 +88,10 @@ if (!function_exists('tenant_db_config')) {
         $slug = tenant_current_slug();
 
         $registry = tenant_registry();
-
-        // Allow exact match and base-domain match (strip port).
         $hostKey = $host ? strtolower(preg_replace('/:.+$/', '', $host)) : null;
 
-        // Helper to normalize different registry shapes to DB config
         $toDbCfg = static function (array $entry): ?array {
             $cfg = $entry;
-            // Support nested shape: ['db' => [...], 'aliases' => [...]]
             if (isset($entry['db']) && is_array($entry['db'])) {
                 $cfg = $entry['db'];
             }
@@ -138,7 +114,7 @@ if (!function_exists('tenant_db_config')) {
                 'dbdriver' => 'mysqli',
                 'dbprefix' => $dbPrefix,
                 'pconnect' => false,
-                'db_debug' => true,
+                'db_debug' => (ENVIRONMENT !== 'production'),
                 'cache_on' => false,
                 'cachedir' => '',
                 'char_set' => 'utf8mb4',
@@ -149,7 +125,6 @@ if (!function_exists('tenant_db_config')) {
             ];
         };
 
-        // Meta-DB registry (if enabled)
         if (getenv('META_DB_HOST') && getenv('META_DB_NAME') && getenv('META_DB_USERNAME')) {
             $CI = &get_instance();
             $CI->load->library('tenants_registry');
@@ -157,58 +132,73 @@ if (!function_exists('tenant_db_config')) {
             $tr = $CI->tenants_registry;
             if ($hostKey) {
                 $row = $tr->get_by_host($hostKey);
-                if ($row) { return $toDbCfg($row); }
+                if ($row) {
+                    return $toDbCfg($row);
+                }
             }
             if ($slug) {
                 $row = $tr->get_by_slug($slug);
-                if ($row) { return $toDbCfg($row); }
+                if ($row) {
+                    return $toDbCfg($row);
+                }
             }
         }
 
-        // 1) Exact host match
         if ($hostKey && isset($registry[$hostKey]) && is_array($registry[$hostKey])) {
             $db = $toDbCfg($registry[$hostKey]);
-            if ($db) { return $db; }
+            if ($db) {
+                return $db;
+            }
         }
 
-        // 1b) Slug match as primary key
         if ($slug && isset($registry[$slug]) && is_array($registry[$slug])) {
             $db = $toDbCfg($registry[$slug]);
-            if ($db) { return $db; }
+            if ($db) {
+                return $db;
+            }
         }
 
-        // 2) Alias match (if entries include ['aliases' => ['host1', 'host2']])
         foreach ($registry as $entry) {
-            if (!is_array($entry)) { continue; }
+            if (!is_array($entry)) {
+                continue;
+            }
             $aliases = $entry['aliases'] ?? [];
-            if (!is_array($aliases)) { continue; }
+            if (!is_array($aliases)) {
+                continue;
+            }
             foreach ($aliases as $alias) {
-                $aliasKey = strtolower(preg_replace('/:.+$/', '', (string)$alias));
+                $aliasKey = strtolower(preg_replace('/:.+$/', '', (string) $alias));
                 if ($aliasKey === $hostKey) {
                     $db = $toDbCfg($entry);
-                    if ($db) { return $db; }
+                    if ($db) {
+                        return $db;
+                    }
                 }
             }
         }
 
-        // 2b) Search entries with ['slug' => '...'] metadata
         if ($slug) {
             foreach ($registry as $entry) {
-                if (!is_array($entry)) { continue; }
-                if (($entry['slug'] ?? null) && strtolower((string)$entry['slug']) === $slug) {
+                if (!is_array($entry)) {
+                    continue;
+                }
+                if (($entry['slug'] ?? null) && strtolower((string) $entry['slug']) === $slug) {
                     $db = $toDbCfg($entry);
-                    if ($db) { return $db; }
+                    if ($db) {
+                        return $db;
+                    }
                 }
             }
         }
 
-        // 3) Fallback to default tenant host (env), to ease domain changes
         $fallbackHost = getenv('DEFAULT_TENANT_HOST') ?: getenv('TENANT_FALLBACK_HOST');
         if ($fallbackHost) {
             $fallbackKey = strtolower(preg_replace('/:.+$/', '', $fallbackHost));
             if (isset($registry[$fallbackKey]) && is_array($registry[$fallbackKey])) {
                 $db = $toDbCfg($registry[$fallbackKey]);
-                if ($db) { return $db; }
+                if ($db) {
+                    return $db;
+                }
             }
         }
 
@@ -216,17 +206,15 @@ if (!function_exists('tenant_db_config')) {
     }
 }
 
-// Utility for writing the registry from external scripts (not used by CI runtime directly).
 if (!function_exists('tenant_registry_write')) {
     function tenant_registry_write(array $registry): void
     {
-        $path = tenant_registry_path();
+        $path = tenant_registry_fallback_path();
         $dir = dirname($path);
         if (!is_dir($dir)) {
             @mkdir($dir, 0775, true);
         }
 
-        // Ensure writability
         if (file_exists($path) && !is_writable($path)) {
             @chmod($path, 0664);
         }
@@ -234,23 +222,27 @@ if (!function_exists('tenant_registry_write')) {
             @chmod($dir, 0775);
         }
 
-        // Export as PHP file returning array
         $export = var_export($registry, true);
         $content = "<?php\nreturn " . $export . ";\n";
         $tmp = $path . '.tmp.' . uniqid('', true);
         $bytes = @file_put_contents($tmp, $content, LOCK_EX);
         if ($bytes === false) {
-            // Fallback to direct write
             if (@file_put_contents($path, $content) === false) {
                 throw new RuntimeException('Cannot write tenant registry at: ' . $path);
+            }
+            if (function_exists('opcache_invalidate')) {
+                @opcache_invalidate($path, true);
             }
             return;
         }
         if (!@rename($tmp, $path)) {
-            // Fallback to direct write
             if (@file_put_contents($path, $content) === false) {
                 throw new RuntimeException('Cannot finalize tenant registry write at: ' . $path);
             }
+        }
+
+        if (function_exists('opcache_invalidate')) {
+            @opcache_invalidate($path, true);
         }
     }
 }

@@ -1,9 +1,8 @@
-<?php defined('BASEPATH') or exit('No direct script access allowed');
+﻿<?php defined('BASEPATH') or exit('No direct script access allowed');
 
 class Tenants_registry
 {
-    /** @var EA_Controller|CI_Controller */
-    protected $CI;
+    protected EA_Controller|CI_Controller $CI;
 
     public function __construct()
     {
@@ -25,25 +24,26 @@ class Tenants_registry
             'database' => getenv('META_DB_NAME'),
             'dbdriver' => 'mysqli',
             'dbprefix' => '',
-            'pconnect' => FALSE,
+            'pconnect' => false,
             'db_debug' => (ENVIRONMENT !== 'production'),
-            'cache_on' => FALSE,
+            'cache_on' => false,
             'cachedir' => '',
             'char_set' => 'utf8mb4',
             'dbcollat' => 'utf8mb4_unicode_ci',
             'swap_pre' => '',
-            'autoinit' => TRUE,
-            'stricton' => FALSE,
+            'autoinit' => true,
+            'stricton' => false,
         ];
     }
 
     protected function db()
     {
-        return $this->CI->load->database($this->connection_config(), TRUE);
+        return $this->CI->load->database($this->connection_config(), true);
     }
 
     public function ensure_schema(): void
     {
+        if (!$this->is_enabled()) { return; }
         $db = $this->db();
         $db->query('CREATE TABLE IF NOT EXISTS tenants (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -62,6 +62,7 @@ class Tenants_registry
     public function get_by_host(string $host): ?array
     {
         if (!$this->is_enabled()) { return null; }
+        $this->ensure_schema();
         $row = $this->db()->get_where('tenants', ['host' => $host])->row_array();
         return $row ?: null;
     }
@@ -69,6 +70,7 @@ class Tenants_registry
     public function get_by_slug(string $slug): ?array
     {
         if (!$this->is_enabled()) { return null; }
+        $this->ensure_schema();
         $row = $this->db()->get_where('tenants', ['slug' => $slug])->row_array();
         return $row ?: null;
     }
@@ -86,4 +88,3 @@ class Tenants_registry
         $db->insert('tenants', $entry);
     }
 }
-
